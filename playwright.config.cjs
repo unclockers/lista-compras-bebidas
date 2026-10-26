@@ -5,7 +5,7 @@ module.exports = defineConfig({
   workers: 1,
   use: { baseURL: "http://127.0.0.1:8766", browserName: "chromium" },
   webServer: {
-    command: "python -m http.server 8766 --bind 127.0.0.1",
+    command: "node tests/start-server.cjs",
     url: "http://127.0.0.1:8766",
     reuseExistingServer: false,
   },

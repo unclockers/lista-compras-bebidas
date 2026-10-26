@@ -3,3 +3,6 @@ test-results/
 playwright-report/
 site/
 *backup*.json
+data/
+*.sqlite*
+.env

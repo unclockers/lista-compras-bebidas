@@ -26,7 +26,7 @@ jobs:
       - name: Separar somente arquivos publicos
         run: |
           mkdir site
-          cp index.html manifest.json icon.svg sw.js site/
+          cp index.html manifest.json icon.svg sw.js logo.jpg icon-192.png icon-512.png estoque.js site/
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site

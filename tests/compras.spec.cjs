@@ -1,8 +1,20 @@
 const { test, expect } = require("@playwright/test");
+const seed = require("../server/seed.cjs");
 
 test.beforeEach(async ({ page }) => {
+  const login = await page.request.post("/api/login",{
+    headers:{Origin:"http://127.0.0.1:8766"},
+    data:{username:"test-admin",password:"test-password-only-long"},
+  });
+  expect(login.ok()).toBe(true);
+  const catalog = await (await page.request.get("/api/catalog")).json();
+  const reset = await page.request.put("/api/catalog",{
+    headers:{Origin:"http://127.0.0.1:8766"}, data:{...seed,revision:catalog.revision},
+  });
+  expect(reset.ok()).toBe(true);
   await page.goto("/");
   page.on("dialog", dialog => dialog.accept());
+  await expect(page.locator("#app")).toBeVisible();
 });
 
 test("pedido, histórico e persistência", async ({ page }) => {
@@ -40,7 +52,7 @@ test("cadastro, parâmetros e edição sem perder o pedido", async ({ page }) =>
   await page.locator("#fecharCadastros").click();
   await page.reload();
   await expect(page.getByRole("spinbutton", { name: "Quantidade de PRODUTO RENOMEADO", exact: true })).toHaveValue("8");
-  const dados = await page.evaluate(() => JSON.parse(localStorage.getItem("listaCompras.v1")));
+  const dados = await page.evaluate(() => JSON.parse(localStorage.getItem("villas.usuario.1")));
   expect(dados.parametros["PRODUTO RENOMEADO"]).toEqual({ unidade: "Fardo com 12", minimo: 5, ideal: 20 });
 });
 
@@ -84,12 +96,16 @@ test("backup exportado é restaurado e arquivo inválido é rejeitado", async ({
   await expect(page.locator("#total")).not.toContainText("0 produtos");
 });
 
-test("migração da primeira versão mantém extras, quantidades e histórico", async ({ page }) => {
-  await page.evaluate(() => localStorage.setItem("listaCompras.v1", JSON.stringify({
-    extras: [{nome:"PRODUTO LEGADO",cat:0}], qtd: {"PRODUTO LEGADO":3},
-    historico:[{data:"2026-10-26T10:00:00Z",itens:{"COCA 2LT":5}}]
-  })));
-  await page.reload();
+test("restaura backup antigo sem vincular dados anônimos automaticamente", async ({ page }) => {
+  await page.locator("#btnCadastros").click();
+  await page.locator("#arquivoBackup").setInputFiles({
+    name:"legado.json", mimeType:"application/json",buffer:Buffer.from(JSON.stringify({
+      versao:2,categorias:["Legado"],produtos:[["PRODUTO LEGADO",0,3],["COCA 2LT",0,5]],
+      parametros:{},qtd:{"PRODUTO LEGADO":3},
+      historico:[{data:"2026-10-26T10:00:00Z",itens:{"COCA 2LT":5}}]
+    }))
+  });
+  await page.locator("#fecharCadastros").click();
   await expect(page.getByRole("spinbutton", {name:"Quantidade de PRODUTO LEGADO",exact:true})).toHaveValue("3");
   await page.locator("#btnUltimo").click();
   await expect(page.getByRole("spinbutton", {name:"Quantidade de COCA 2LT",exact:true})).toHaveValue("5");
@@ -113,7 +129,7 @@ for (const width of [320, 360, 390, 430, 768]) {
   });
 }
 
-test("abre e permite editar o pedido offline", async ({ page, context }) => {
+test("edita offline após login, mas recarregar offline não libera acesso", async ({ page, context }) => {
   await page.evaluate(async () => {
     await navigator.serviceWorker.ready;
     if (!navigator.serviceWorker.controller) {
@@ -121,8 +137,63 @@ test("abre e permite editar o pedido offline", async ({ page, context }) => {
     }
   });
   await context.setOffline(true);
-  await page.reload();
   await page.locator(".mais").first().click();
   await expect(page.getByRole("spinbutton", { name: "Quantidade de COCA 2LT", exact:true })).toHaveValue("1");
+  await page.reload();
+  await expect(page.locator("#login")).toBeVisible();
+  await expect(page.locator("#app")).toBeHidden();
   await context.setOffline(false);
+});
+
+test("contagem opcional gera reposição e mantém pedido manual até aprovação",async({page})=>{
+  await page.locator("#btnCadastros").click();
+  await page.locator("#buscaCadastro").fill("COCA 2LT");
+  await page.locator("#cadastroProdutos button").first().click();
+  await page.locator("#produtoUnidade").fill("fardo");
+  await page.locator("#produtoMinimo").fill("5");
+  await page.locator("#produtoIdeal").fill("20");
+  await page.locator("#salvarNovo").click();
+  await page.locator("#fecharCadastros").click();
+  await page.locator("#btnPublicarCatalogo").click();
+  await expect(page.locator("#btnPublicarCatalogo")).not.toContainText("pendente");
+  await page.locator("#btnContagem").click();
+  await page.getByRole("spinbutton",{name:"Estoque de COCA 2LT",exact:true}).fill("2");
+  await page.getByRole("spinbutton",{name:"Estoque de COCA 2LT",exact:true}).blur();
+  await page.locator("#gerarContagem").click();
+  await expect(page.locator("#textoReposicao")).toHaveValue("18X - COCA 2LT");
+  await expect(page.locator("#total")).toContainText("0 produtos");
+  await page.locator("#aprovarReposicao").click();
+  await expect(page.getByRole("spinbutton",{name:"Quantidade de COCA 2LT",exact:true})).toHaveValue("18");
+  await page.locator("#btnContagem").click();
+  await page.locator("#enviarContagem").click();
+  await expect(page.locator("#dlgContagem")).not.toBeVisible();
+  await page.locator("#btnContagens").click();
+  await expect(page.locator("#listaContagens")).toContainText("1 contados");
+});
+
+test("colaborador vê contagem, não vê cadastros e não acessa catálogo por PUT",async({page})=>{
+  const nome="colab-"+Date.now();
+  const created=await page.request.post("/api/users",{
+    headers:{Origin:"http://127.0.0.1:8766"},
+    data:{username:nome,password:"test-colab-password-long",role:"colaborador"},
+  });
+  expect(created.status()).toBe(201);
+  await page.locator("#btnSair").click();
+  await page.locator("#usuarioLogin").fill(nome);
+  await page.locator("#senhaLogin").fill("test-colab-password-long");
+  await page.locator("#formLogin button").click();
+  await expect(page.locator("#btnContagem")).toBeVisible();
+  await expect(page.locator("#btnCadastros")).toBeHidden();
+  await expect(page.locator("#btnUsuarios")).toBeHidden();
+  const denied=await page.request.put("/api/catalog",{
+    headers:{Origin:"http://127.0.0.1:8766"},data:{...seed,revision:1},
+  });
+  expect(denied.status()).toBe(403);
+  await page.locator("#btnContagem").click();
+  const campo=page.getByRole("spinbutton",{name:"Estoque de COCA 2LT",exact:true});
+  await campo.fill("0");await campo.blur();
+  await page.locator("#enviarContagem").click();
+  await expect(page.locator("#dlgContagem")).not.toBeVisible();
+  await page.locator("#btnContagens").click();
+  await expect(page.locator("#listaContagens")).toContainText(nome);
 });

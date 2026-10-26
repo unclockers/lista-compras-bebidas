@@ -3,8 +3,12 @@
   "version": "2.0.0",
   "private": true,
   "scripts": {
-    "test": "playwright test"
+    "test": "node --test server/tests.cjs && playwright test",
+    "test:browser": "playwright test",
+    "start": "node server/app.cjs",
+    "create-admin": "node server/create-admin.cjs"
   },
+  "engines": { "node": ">=24.0.0" },
   "devDependencies": {
     "@playwright/test": "1.56.1"
   }

@@ -3,10 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0f766e">
+<meta name="theme-color" content="#151515">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.svg">
-<title>Lista de Compras</title>
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Villas Beer • Compras e estoque</title>
 <style>
   :root { --verde:#0f766e; --verde-claro:#ccfbf1; --cinza:#f1f5f9; --borda:#e2e8f0; --texto:#0f172a; --suave:#64748b; }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -47,7 +48,7 @@
   .botoes .ok { background:var(--verde); color:#fff; }
   .botoes .zap { background:#16a34a; color:#fff; }
   .hist { padding:10px 0; border-bottom:1px solid var(--borda); display:flex; gap:8px; align-items:center; }
-  .hist div { flex:1; font-size:14px; }
+  .hist div { flex:1; font-size:14px; min-width:0; overflow-wrap:anywhere; }
   .hist small { color:var(--suave); display:block; }
   .hist button { border:0; background:var(--verde); color:#fff; border-radius:8px; padding:8px 10px; font-weight:700; }
   .nome { min-width:0; overflow-wrap:anywhere; }
@@ -59,6 +60,19 @@
   .cadastro-lista { max-height:40vh; overflow-y:auto; margin-top:10px; }
   .cadastro-lista button { display:block; width:100%; text-align:left; background:var(--cinza); border:0; border-radius:8px; padding:10px; margin:6px 0; overflow-wrap:anywhere; }
   .campo-duplo { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  [hidden] { display:none !important; }
+  .marca { background:#080808; text-align:center; padding:10px; }
+  .marca img { width:180px; max-width:70%; height:auto; display:block; margin:auto; }
+  .sessao { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:8px 12px; font-size:13px; }
+  .sessao button { border:1px solid var(--borda); border-radius:8px; background:white; padding:8px; }
+  #login { max-width:420px; margin:24px auto; background:white; padding:20px; border-radius:16px; }
+  #login input { width:100%; padding:12px; font-size:17px; border:1px solid var(--borda); border-radius:10px; margin:8px 0; }
+  #login button { width:100%; background:var(--verde); color:white; border:0; border-radius:10px; padding:12px; font-weight:700; }
+  #erroLogin { color:#b91c1c; }
+  #dlgContagem { width:min(96vw,640px); }
+  #itensContagem { max-height:40vh; overflow:auto; }
+  #itensContagem input { width:84px; flex-shrink:0; }
+  .contado { background:var(--verde-claro); }
   @media (max-width:360px) {
     .item { flex-wrap:wrap; }
     .nome { flex-basis:100%; }
@@ -72,6 +86,24 @@
 </style>
 </head>
 <body>
+<div class="marca"><img src="logo.jpg" alt="Villas Beer Distribuidora"></div>
+<section id="login">
+  <h1>Compras e estoque</h1>
+  <p>Acesso restrito à equipe Villas Beer.</p>
+  <form id="formLogin">
+    <label for="usuarioLogin">Usuário</label><input id="usuarioLogin" required autocomplete="username" maxlength="40">
+    <label for="senhaLogin">Senha</label><input id="senhaLogin" type="password" required autocomplete="current-password" maxlength="128">
+    <button type="submit">Entrar</button>
+  </form>
+  <p id="erroLogin" role="alert"></p>
+  <p class="aviso" id="hostingPendente" hidden>A publicação do backend de login está pendente. O GitHub Pages sozinho não autentica usuários nem sincroniza contagens.</p>
+</section>
+<div id="app" hidden>
+<div class="sessao">
+  <strong id="identidade"></strong>
+  <button id="btnSenha">Trocar minha senha</button>
+  <button id="btnSair">Sair</button>
+</div>
 <header>
   <div class="linha"><h1>Lista de compras</h1><span class="total" id="total">0 itens</span></div>
   <input type="search" id="busca" placeholder="Buscar produto..." autocomplete="off">
@@ -83,9 +115,14 @@
   <button id="btnUltimo">Repetir último</button>
   <button id="btnNovo">+ Produto</button>
   <button id="btnCadastros">Cadastros</button>
+  <button id="btnPublicarCatalogo">Salvar catálogo online</button>
+  <button id="btnRecarregarCatalogo">Recarregar catálogo</button>
+  <button id="btnUsuarios">Equipe</button>
+  <button id="btnContagem">Contar estoque (opcional)</button>
+  <button id="btnContagens">Contagens enviadas</button>
   <button id="btnLimpar">Limpar</button>
 </div>
-<p class="aviso" id="status" role="status">Dados salvos somente neste navegador. Faça backup antes de trocar de aparelho.</p>
+<p class="aviso" id="status" role="status"></p>
 
 <main id="lista"></main>
 
@@ -93,6 +130,43 @@
   <button class="sec" id="btnHistorico">Histórico</button>
   <button class="zap" id="btnEnviar">Enviar pelo WhatsApp</button>
 </div>
+</div>
+
+<dialog id="dlgContagem">
+  <h2>Contagem opcional de estoque</h2>
+  <p>Preencha na unidade de compra do cadastro. Em branco = não contado. Zero = estoque zerado. A contagem não altera o pedido manual.</p>
+  <input id="buscaContagem" type="search" placeholder="Buscar produto" aria-label="Buscar na contagem">
+  <p id="progressoContagem" role="status"></p>
+  <div id="itensContagem"></div>
+  <div class="botoes"><button id="limparContagem">Nova contagem</button><button id="enviarContagem" class="ok">Enviar contagem</button></div>
+  <div class="botoes"><button id="fecharContagem">Fechar</button><button id="gerarContagem">Revisar sugestão</button></div>
+</dialog>
+<dialog id="dlgContagens">
+  <h2>Contagens da equipe</h2><div id="listaContagens"></div>
+  <div class="botoes"><button id="fecharContagens">Fechar</button></div>
+</dialog>
+<dialog id="dlgRevisao">
+  <h2>Revisão da reposição</h2>
+  <p id="resumoReposicao"></p><textarea id="textoReposicao" readonly aria-label="Sugestão de reposição"></textarea>
+  <p id="pendenciasReposicao"></p>
+  <div class="botoes"><button id="cancelarReposicao">Voltar</button><button id="aprovarReposicao" class="ok">Usar no pedido manual</button></div>
+</dialog>
+<dialog id="dlgUsuarios">
+  <h2>Equipe</h2><div id="listaUsuarios"></div>
+  <form id="formUsuario">
+    <label for="novoUsuario">Usuário (3 a 40 caracteres)</label><input id="novoUsuario" required autocomplete="off">
+    <label for="senhaUsuario">Senha inicial (12 a 128 caracteres)</label><input id="senhaUsuario" type="password" required minlength="12" maxlength="128" autocomplete="new-password">
+    <label for="perfilUsuario">Perfil</label><select id="perfilUsuario"><option value="colaborador">Colaborador</option><option value="admin">Administrador</option></select>
+    <div class="botoes"><button id="fecharUsuarios" type="button">Fechar</button><button type="submit" class="ok">Cadastrar usuário</button></div>
+  </form>
+</dialog>
+<dialog id="dlgSenha">
+  <h2>Trocar minha senha</h2><form id="formSenha">
+    <label for="senhaAtual">Senha atual</label><input id="senhaAtual" type="password" required autocomplete="current-password">
+    <label for="novaSenha">Nova senha</label><input id="novaSenha" type="password" required minlength="12" maxlength="128" autocomplete="new-password">
+    <div class="botoes"><button id="cancelarSenha" type="button">Cancelar</button><button class="ok">Salvar e sair</button></div>
+  </form>
+</dialog>
 
 <dialog id="dlgEnviar">
   <h2>Pedido pronto</h2>
@@ -110,7 +184,7 @@
   <label>Categoria</label><select id="novoCat"></select>
   <label for="produtoUnidade">Unidade de compra/contagem</label><input id="produtoUnidade" placeholder="Ex.: fardo com 12, caixa, unidade">
   <label for="produtoUsual">Quantidade usual do pedido (0 a 999)</label><input type="number" min="0" max="999" step="1" id="produtoUsual" inputmode="numeric" value="0">
-  <p class="aviso">Parâmetros para a futura contagem: use a mesma unidade do pedido. Não são calculados pelas compras anteriores.</p>
+  <p class="aviso">Parâmetros da contagem opcional: use a mesma unidade do pedido. Não são calculados pelas compras anteriores.</p>
   <div class="campo-duplo">
     <div><label for="produtoMinimo">Estoque mínimo</label><input type="number" min="0" max="999" step="1" id="produtoMinimo" inputmode="numeric" placeholder="Não configurado"></div>
     <div><label for="produtoIdeal">Estoque ideal</label><input type="number" min="0" max="999" step="1" id="produtoIdeal" inputmode="numeric" placeholder="Não configurado"></div>
@@ -140,64 +214,11 @@
   <div class="botoes"><button id="fecharHistorico">Fechar</button></div>
 </dialog>
 
+<script src="estoque.js"></script>
 <script>
-const CATEGORIAS = ["Refrigerantes","Cervejas","Águas","Sucos e isotônicos","Energéticos","Ice e prontos","Destilados","Outros"];
-
-// [nome, categoria, quantidade usual]
-const CATALOGO_BASE = [
-  ["COCA 2LT",0,10],["COCA ZERO 2LT",0,6],["MINEIRO 2LT",0,4],["FANTA 2LT",0,1],["SPRITE 2LT",0,1],
-  ["GUARANA ANTARTICA 2LT",0,1],["GUARANA ZERO ANTARTICA 2LT",0,1],["PEPSI BLACK 2LT",0,0],
-  ["COCA 600ML",0,1],["COCA ZERO 600ML",0,1],["MINEIRO 600ML",0,2],["GUARANA ANTARTICA 600ML",0,1],["GUARANA ZERO ANTARTICA 600ML",0,1],
-  ["COCA LATA",0,6],["COCA ZERO LATA",0,3],["PEPSI TWIST BLACK LATA",0,3],["SPRITE LATA",0,3],["SPRITE ZERO LATA",0,3],
-  ["MINEIRO LATA",0,3],["GUARANA ANTARTICA LATA",0,1],["GUARANA LATA",0,0],["FANTA UVA LATA",0,1],["FANTA LARANJA LATA",0,1],
-  ["TONICA ANTARTICA LATA",0,1],["TONICA ZERO ANTARTICA LATA",0,0],
-  ["H2OH LIMONETO 500ML",0,1],["H2OH LIMAO 500ML",0,1],["PITCHULA",0,1],["TODYNHO",0,0],
-
-  ["BRAHMA LATA",1,12],["ORIGINAL LATA",1,8],["ANTARTICA LATA",1,8],["SKOL LATA",1,0],["BAVARIA LATA",1,0],
-  ["CARACU LATA",1,0],["HEINEKEN LATA",1,0],["IMPERIO BRANCA LATA",1,4],["IMPERIO VERDE LATA",1,2],
-  ["STELLA PURE GOLD LONG NECK",1,4],["STELLA LONG NECK",1,1],["BUDWEISER LONG NECK",1,1],["MICHELOB LONG NECK",1,1],
-  ["SOL LONG NECK",1,1],["CORONA LONG NECK",1,1],["CORONA ZERO LONG NECK",1,1],["BECKS LONG NECK",1,0],
-  ["SPATEN LONG NECK",1,0],["HEINEKEN LONG NECK PACK C/6",1,0],
-  ["SKOL BEATS LONG NECK GT",1,0],["SKOL BEATS LONG NECK AZUL",1,0],["SKOL BEATS LONG NECK VERMELHA",1,0],
-
-  ["AGUA NATIVA 1,5 LITROS",2,8],["AGUA NATIVA 500ML",2,10],["AGUA LIA CRYSTAL C/ GAS 1500ML",2,6],
-  ["AGUA LIA CRYSTAL C/ GAS 500ML",2,8],["AGUA DE COCO 1LT C/8",2,0],
-
-  ["LAFRUIT UVA 200ML",3,1],["LAFRUIT MARACUJA 200ML",3,1],["LAFRUIT UVA 1LT",3,0],["LAFRUIT MARACUJA 1LT",3,0],
-  ["LAFRUIT PESSEGO 1LT",3,0],["LAFRUIT CAJU 1LT",3,0],["LAFRUIT MANGA 1LT",3,0],
-  ["GATORADE AZUL",3,0],["GATORADE LIMAO",3,0],["GATORADE MARACUJA",3,0],["GATORADE MORANGO",3,0],
-  ["GATORADE LARANJA",3,0],["GATORADE UVA",3,0],["GATORADE TANGERINA",3,0],["GATORADE BLUEBERRY",3,0],
-
-  ["REDBULL TRADICIONAL 250ML PACK C/4",4,6],["REDBULL ZERO TRADICIONAL 250ML PACK C/4",4,6],
-  ["REDBULL MELANCIA 250ML PACK C/4",4,0],["REDBULL TROPICAL 250ML PACK C/4",4,0],
-  ["MONSTER TRADICIONAL",4,4],["MONSTER TRADICIONAL ZERO",4,4],["MONSTER MANGO LOKO",4,4],["MONSTER MANGO LOKO ZERO",4,0],
-  ["MONSTER ULTRA VIOLET",4,0],["MONSTER MORANGO",4,4],["MONSTER PESSEGO",4,0],["MONSTER ROSA",4,0],["MONSTER RIO",4,0],
-  ["MONSTER BRANCO",4,0],["MONSTER KAOTIC",4,0],["MONSTER UVA",4,0],["MONSTER LARANJA",4,0],
-  ["EXTRA POWER 1,5LT",4,2],["EXTRA POWER 2LT",4,2],["EXTRA POWER 269ML PACK C/6",4,0],["EXTRA POWER 473ML PACK C/6",4,0],
-  ["EXTRA POWER LATAO",4,0],["BALLY TROPICAL 2LT",4,0],
-
-  ["SMIRNOFF ICE LONG PACK C/6",5,0],["51 ICE LIMAO LONG PACK C/6",5,0],["51 ICE CABARE LONG PACK C/6",5,0],
-  ["51 ICE BALADA LONG PACK C/6",5,0],["FIU-FIU ICE CHICLETIN PACK C/6",5,0],["FIU-FIU ICE CAJALEMON PACK C/6",5,0],
-  ["SMIRNOFF ICE C/24",5,0],["51 ICE LIMAO C/24",5,0],
-
-  ["CAMPARI",6,2],["VODKA SMIRNOFF 1LT",6,0],["PINGA 51",6,0],["VELHO BARREIRO",6,0],["BUSCA BRISA GARRAFA",6,0],
-
-  ["ISQUEIRO BIC MINI",7,0],["ISQUEIRO BIC MAX",7,0],["PARATUDO",7,0],["NEVADA",7,0],["COPO PARA DOSE",7,0]
-];
-
-const CHAVE = "listaCompras.v1";
+let CHAVE = null;
 let salvo = {};
 let falhaLeitura = false;
-try {
-  salvo = JSON.parse(localStorage.getItem(CHAVE) || "{}");
-  if (!salvo || typeof salvo !== "object" || Array.isArray(salvo)) throw new Error("Formato inválido");
-  if (salvo.versao === 2) validarBackup(salvo);
-} catch (erro) {
-  falhaLeitura = true;
-  salvo = {};
-  console.error("Não foi possível ler os dados salvos", erro);
-  alert("Os dados salvos não puderam ser lidos. Nada será sobrescrito automaticamente. Restaure um backup em Cadastros.");
-}
 const estado = {
   extras: salvo.extras || [],       // produtos adicionados por voce
   qtd: salvo.qtd || {},             // pedido em andamento
@@ -205,18 +226,32 @@ const estado = {
   cat: -1,
   busca: ""
 };
-estado.categorias = salvo.categorias || CATEGORIAS.slice();
-estado.produtos = salvo.produtos || CATALOGO_BASE.concat(estado.extras.map(e => [e.nome,e.cat,0]));
+estado.categorias = [];
+estado.produtos = [];
 estado.parametros = salvo.parametros || {};
+estado.contagem = {};
+estado.contagemRevision = null;
+let sessao = null;
+let revision = 0;
+let catalogoSincronizado = "";
+function dadosCatalogo() {
+  return {categorias:estado.categorias,produtos:estado.produtos,parametros:estado.parametros};
+}
 function dados() {
-  return {versao:2, categorias:estado.categorias, produtos:estado.produtos, parametros:estado.parametros, qtd:estado.qtd, historico:estado.historico};
+  return {versao:2, categorias:estado.categorias, produtos:estado.produtos, parametros:estado.parametros,
+    qtd:estado.qtd, historico:estado.historico, contagem:estado.contagem, contagemRevision:estado.contagemRevision};
 }
 function persistir() {
+  if (!sessao || !CHAVE) return;
   if (falhaLeitura) {
     alert("Os dados anteriores estão ilegíveis. Restaure um backup válido antes de salvar.");
     return;
   }
-  try { localStorage.setItem(CHAVE, JSON.stringify(dados())); }
+  try {
+    localStorage.setItem(CHAVE, JSON.stringify({...dados(), revision, contagem:estado.contagem,
+      contagemRevision:estado.contagemRevision, catalogoPendente:JSON.stringify(dadosCatalogo()) !== catalogoSincronizado}));
+    atualizarStatus();
+  }
   catch (erro) {
     console.error("Não foi possível salvar os dados", erro);
     $("status").textContent = "Falha ao salvar neste navegador. Baixe um backup em Cadastros para não perder os dados.";
@@ -236,6 +271,11 @@ const $ = id => document.getElementById(id);
 function desenhar() {
   const lista = $("lista");
   lista.textContent = "";
+  if (sessao?.role !== "admin") {
+    lista.textContent = "Use Contar estoque para registrar as quantidades. Cadastros e pedidos são gerenciados pelo administrador.";
+    lista.className = "vazio"; atualizarTotal(); return;
+  }
+  lista.className = "";
   const ult = ultimoPedido();
   const busca = norm(estado.busca.trim());
   let mostrou = 0;
@@ -377,6 +417,7 @@ $("btnSalvar").onclick = () => {
 
 let produtoEditado = null;
 function abrirProduto(nome = null) {
+  if (sessao?.role !== "admin") { alert("Apenas administradores podem editar o catálogo."); return; }
   produtoEditado = nome;
   const produto = catalogo().find(p => p[0] === nome);
   const parametros = estado.parametros[nome] || {};
@@ -474,6 +515,8 @@ $("arquivoBackup").onchange = async e => {
     validarBackup(backup);
     if (!confirm("Substituir todos os dados deste aparelho pelo backup? Faça um backup atual antes.")) return;
     for (const chave of ["categorias","produtos","parametros","qtd","historico"]) estado[chave] = backup[chave];
+    estado.contagem = backup.contagem || {};
+    estado.contagemRevision = backup.contagemRevision ?? null;
     falhaLeitura = false;
     estado.cat = -1; persistir(); chips(); desenhar(); listarCadastros();
     alert("Backup restaurado.");
@@ -493,6 +536,8 @@ function validarBackup(b) {
       new Set(b.produtos.map(p => norm(p[0]))).size !== b.produtos.length ||
       !mapa(b.qtd) || !Array.isArray(b.historico) || b.historico.length > 30 ||
       !b.historico.every(h => objeto(h) && typeof h.data === "string" && Number.isFinite(Date.parse(h.data)) && mapa(h.itens)) ||
+      (b.contagem !== undefined && !mapa(b.contagem)) ||
+      (b.contagemRevision !== undefined && b.contagemRevision !== null && (!Number.isInteger(b.contagemRevision) || b.contagemRevision < 1)) ||
       !objeto(b.parametros) || !Object.values(b.parametros).every(p => objeto(p) && typeof p.unidade === "string" &&
         ((p.minimo === null && p.ideal === null) || (quantidade(p.minimo) && quantidade(p.ideal) && p.ideal >= p.minimo)))) {
     throw new Error("Arquivo de backup inválido ou incompatível.");
@@ -527,7 +572,233 @@ if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
   });
 }
 
-chips(); desenhar();
+async function api(path, method = "GET", body) {
+  const response = await fetch("/api" + path, {
+    method, credentials:"same-origin", cache:"no-store",
+    headers:body ? {"Content-Type":"application/json"} : {},
+    body:body ? JSON.stringify(body) : undefined,
+  });
+  if (!(response.headers.get("content-type") || "").includes("application/json")) {
+    throw new Error("Backend ainda não publicado neste endereço. O GitHub Pages não executa o servidor de login.");
+  }
+  const payload = await response.json();
+  if (!response.ok) {
+    if (response.status === 401 && sessao) bloquear();
+    throw new Error(payload.error || "Não foi possível concluir a operação.");
+  }
+  return payload;
+}
+function acao(fn) {
+  return async (...args) => {
+    try { await fn(...args); }
+    catch (erro) { console.error("Falha na operação",erro); alert(erro.message); }
+  };
+}
+function atualizarStatus() {
+  const pendente = JSON.stringify(dadosCatalogo()) !== catalogoSincronizado;
+  $("status").textContent = (pendente ? "Catálogo com alterações locais: use Salvar catálogo online para compartilhar. " : "Catálogo compartilhado atualizado. ") +
+    "Pedido e contagem em andamento ficam neste aparelho. Contagens enviadas ficam no servidor.";
+  $("btnPublicarCatalogo").textContent = pendente ? "Salvar catálogo online • pendente" : "Salvar catálogo online";
+}
+function bloquear() {
+  document.querySelectorAll("dialog[open]").forEach(d => d.close());
+  $("app").hidden = true; $("login").hidden = false;
+  sessao = null;
+  estado.produtos = []; estado.categorias = []; estado.parametros = {};
+  estado.qtd = {}; estado.historico = []; estado.contagem = {};
+  estado.contagemRevision = null;
+  $("lista").textContent = "";
+}
+async function iniciarSessao(user) {
+  const cat = await api("/catalog");
+  sessao = user; revision = cat.revision;
+  CHAVE = "villas.usuario." + user.id;
+  Object.assign(estado,{categorias:cat.categorias,produtos:cat.produtos,parametros:cat.parametros,qtd:{},historico:[],contagem:{},contagemRevision:null,cat:-1,busca:""});
+  catalogoSincronizado = JSON.stringify(dadosCatalogo());
+  const cache = localStorage.getItem(CHAVE);
+  falhaLeitura = false;
+  if (cache) {
+    try {
+      const local = JSON.parse(cache); validarBackup(local);
+      estado.qtd = local.qtd; estado.historico = local.historico;
+      estado.contagem = local.contagem || {}; estado.contagemRevision = local.contagemRevision;
+      if (local.catalogoPendente && user.role === "admin") {
+        estado.categorias = local.categorias; estado.produtos = local.produtos; estado.parametros = local.parametros;
+        revision = local.revision;
+        if (revision !== cat.revision) alert("Há edições locais e alterações de outro aparelho. Baixe um backup e recarregue o catálogo antes de salvar online.");
+      }
+    } catch (erro) {
+      falhaLeitura = true;
+      console.error("Cache local ilegível",erro);
+      alert("Dados locais ilegíveis. Restaure um backup antes de salvar neste aparelho.");
+    }
+  }
+  const admin = user.role === "admin";
+  for (const id of ["btnSugestao","btnUltimo","btnNovo","btnCadastros","btnLimpar","btnUsuarios","btnPublicarCatalogo","btnRecarregarCatalogo","btnEnviar","btnHistorico","gerarContagem"]) $(id).hidden = !admin;
+  $("identidade").textContent = user.username + " · " + (admin ? "Administrador" : "Colaborador");
+  document.querySelector(".rodape").hidden = !admin;
+  $("app").hidden = false; $("login").hidden = true;
+  $("senhaLogin").value = "";
+  chips(); desenhar(); atualizarStatus();
+}
+$("formLogin").onsubmit = async e => {
+  e.preventDefault(); $("erroLogin").textContent = "";
+  const button = e.target.querySelector("button"); button.disabled = true;
+  try {
+    const user = await api("/login","POST",{username:$("usuarioLogin").value,password:$("senhaLogin").value});
+    await iniciarSessao(user);
+  } catch (erro) { $("erroLogin").textContent = erro.message; }
+  finally { button.disabled = false; }
+};
+$("btnSair").onclick = acao(async () => {
+  if (!navigator.onLine) throw new Error("Conecte-se para encerrar também a sessão no servidor.");
+  await api("/logout","POST",{});
+  if (CHAVE) localStorage.removeItem(CHAVE);
+  bloquear();
+});
+$("btnPublicarCatalogo").onclick = acao(async () => {
+  const updated = await api("/catalog","PUT",{...dadosCatalogo(),revision});
+  revision = updated.revision; catalogoSincronizado = JSON.stringify(dadosCatalogo());
+  persistir(); alert("Catálogo compartilhado salvo.");
+});
+$("btnRecarregarCatalogo").onclick = acao(async () => {
+  if (!confirm("Descartar edições locais do catálogo e buscar o salvo no servidor? O pedido e a contagem não serão apagados.")) return;
+  const cat = await api("/catalog");
+  estado.produtos=cat.produtos; estado.categorias=cat.categorias; estado.parametros=cat.parametros;
+  revision=cat.revision; catalogoSincronizado=JSON.stringify(dadosCatalogo());
+  estado.cat=-1; persistir(); chips(); desenhar();
+});
+function desenharContagem() {
+  const box = $("itensContagem"); box.textContent = "";
+  const busca = norm($("buscaContagem").value);
+  catalogo().filter(p=>norm(p[0]).includes(busca)).forEach(([nome]) => {
+    const linha = document.createElement("label");
+    linha.className = "item" + (Object.hasOwn(estado.contagem,nome) ? " contado" : "");
+    const texto = document.createElement("span"); texto.className="nome";
+    texto.textContent=nome;
+    const unidade = document.createElement("small");
+    unidade.textContent=estado.parametros[nome]?.unidade || "Unidade não configurada — peça ao administrador.";
+    texto.appendChild(unidade);
+    const campo = document.createElement("input");
+    campo.type="number"; campo.min="0"; campo.max="999"; campo.step="1"; campo.inputMode="numeric";
+    campo.placeholder="—"; campo.value=estado.contagem[nome] ?? "";
+    campo.setAttribute("aria-label","Estoque de "+nome);
+    campo.onchange=()=>{
+      if (campo.value !== "" && (!Number.isInteger(Number(campo.value)) || Number(campo.value)<0 || Number(campo.value)>999)) {
+        alert("Informe inteiro de 0 a 999 ou deixe em branco."); campo.value=estado.contagem[nome] ?? ""; return;
+      }
+      if (estado.contagemRevision === null) estado.contagemRevision=revision;
+      if (campo.value==="") delete estado.contagem[nome]; else estado.contagem[nome]=Number(campo.value);
+      linha.className="item"+(campo.value!=="" ? " contado":""); persistir(); progressoContagem();
+    };
+    linha.append(texto,campo); box.appendChild(linha);
+  });
+  progressoContagem();
+}
+function progressoContagem() {
+  $("progressoContagem").textContent=Object.keys(estado.contagem).length+" de "+catalogo().length+" produtos contados.";
+}
+$("btnContagem").onclick=()=>{desenharContagem();$("dlgContagem").showModal();};
+$("buscaContagem").oninput=desenharContagem;
+$("fecharContagem").onclick=()=>$("dlgContagem").close();
+$("limparContagem").onclick=()=>{
+  if (!confirm("Iniciar nova contagem? O rascunho atual será apagado, mas contagens enviadas não.")) return;
+  estado.contagem={}; estado.contagemRevision=revision; persistir(); desenharContagem();
+};
+function exigirContagemAtual() {
+  if (!Object.keys(estado.contagem).length) throw new Error("Preencha pelo menos um item. Zero é uma contagem válida.");
+  if (estado.contagemRevision !== revision || JSON.stringify(dadosCatalogo()) !== catalogoSincronizado) {
+    throw new Error("Catálogo alterado desde o início da contagem. Salve/recarregue o catálogo e inicie uma nova contagem.");
+  }
+}
+$("enviarContagem").onclick=acao(async()=>{
+  exigirContagemAtual();
+  const button=$("enviarContagem"); button.disabled=true;
+  try {
+    await api("/counts","POST",{itens:estado.contagem,revision:estado.contagemRevision});
+    alert("Contagem recebida pelo servidor. O administrador já pode revisar.");
+    $("dlgContagem").close();
+  } finally { button.disabled=false; }
+});
+let reposicaoRevisada=null;
+function revisarReposicao(result,origem) {
+  reposicaoRevisada=result.pedido;
+  $("resumoReposicao").textContent=origem+". Itens abaixo do mínimo são repostos até o ideal. Confira antes de aplicar.";
+  $("textoReposicao").value=textoDoPedido(result.pedido) || "Nenhuma reposição sugerida.";
+  $("pendenciasReposicao").textContent="Não contados: "+result.naoContados.length+". Sem unidade/mínimo/ideal: "+result.semParametros.length+
+    (result.semParametros.length ? " ("+result.semParametros.join(", ")+")." : ".");
+  $("dlgRevisao").showModal();
+}
+$("gerarContagem").onclick=acao(async()=>{
+  exigirContagemAtual();
+  revisarReposicao(Estoque.calcularReposicao(catalogo(),estado.parametros,estado.contagem),"Contagem deste aparelho");
+});
+$("cancelarReposicao").onclick=()=>$("dlgRevisao").close();
+$("aprovarReposicao").onclick=acao(async()=>{
+  if (sessao?.role!=="admin") return;
+  if (!Object.keys(reposicaoRevisada || {}).length) { alert("Não há itens para repor."); return; }
+  const atual=await api("/catalog");
+  if(atual.revision!==revision) throw new Error("O catálogo mudou em outro aparelho. Recarregue e solicite nova contagem.");
+  if (!confirm("Substituir o pedido manual pela sugestão revisada?")) return;
+  estado.qtd={...reposicaoRevisada};persistir();desenhar();$("dlgRevisao").close();
+  $("dlgContagem").close();$("dlgContagens").close();
+});
+$("btnContagens").onclick=acao(async()=>{
+  const rows=await api("/counts");const box=$("listaContagens");box.textContent="";
+  if(!rows.length) box.textContent="Nenhuma contagem enviada.";
+  rows.forEach(row=>{
+    const div=document.createElement("div");div.className="hist";
+    const label=document.createElement("div");
+    label.textContent=row.username+" · "+new Date(row.created).toLocaleString("pt-BR")+" · "+Object.keys(row.itens).length+" contados";
+    div.appendChild(label);
+    if(sessao.role==="admin"){
+      const button=document.createElement("button");button.textContent="Revisar";
+      button.onclick=()=>{
+        if(row.revision!==revision){alert("Esta contagem usa outro catálogo. Solicite uma nova contagem para gerar o pedido.");return;}
+        revisarReposicao(row,"Enviado por "+row.username);
+      };div.appendChild(button);
+    }
+    box.appendChild(div);
+  });$("dlgContagens").showModal();
+});
+$("fecharContagens").onclick=()=>$("dlgContagens").close();
+async function listarUsuarios(){
+  const users=await api("/users");const box=$("listaUsuarios");box.textContent="";
+  users.forEach(user=>{
+    const linha=document.createElement("div");linha.className="hist";
+    const nome=document.createElement("div");nome.textContent=user.username+" · "+user.role+(user.active ? "":" (desativado)");
+    linha.appendChild(nome);
+    if(user.id!==sessao.id){
+      const button=document.createElement("button");button.textContent=user.active ? "Desativar":"Ativar";
+      button.onclick=acao(async()=>{
+        if(!confirm("Alterar acesso de "+user.username+"? Sessões abertas serão encerradas."))return;
+        await api("/users/"+user.id,"PATCH",{active:!user.active});await listarUsuarios();
+      });linha.appendChild(button);
+    }box.appendChild(linha);
+  });
+}
+$("btnUsuarios").onclick=acao(async()=>{await listarUsuarios();$("dlgUsuarios").showModal();});
+$("fecharUsuarios").onclick=()=>$("dlgUsuarios").close();
+$("formUsuario").onsubmit=acao(async e=>{
+  e.preventDefault();
+  await api("/users","POST",{username:$("novoUsuario").value,password:$("senhaUsuario").value,role:$("perfilUsuario").value});
+  $("senhaUsuario").value="";$("novoUsuario").value="";await listarUsuarios();
+});
+$("btnSenha").onclick=()=>{$("senhaAtual").value="";$("novaSenha").value="";$("dlgSenha").showModal();};
+$("cancelarSenha").onclick=()=>$("dlgSenha").close();
+$("formSenha").onsubmit=acao(async e=>{
+  e.preventDefault();
+  await api("/password","POST",{current:$("senhaAtual").value,password:$("novaSenha").value});
+  if(CHAVE)localStorage.removeItem(CHAVE); bloquear();alert("Senha alterada. Entre novamente.");
+});
+async function restaurarAcesso(){
+  try { await iniciarSessao(await api("/session")); }
+  catch(erro) {
+    $("erroLogin").textContent=erro.message==="Faça login para continuar." ? "" : erro.message;
+    $("hostingPendente").hidden=!location.hostname.endsWith("github.io");
+  }
+}
+restaurarAcesso();
 </script>
 </body>
 </html>

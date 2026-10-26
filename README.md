@@ -1,64 +1,128 @@
-# Lista de compras de bebidas
+# Villas Beer - Compras e estoque
 
-Aplicativo independente dos sistemas OficcerSeg, hospedável no GitHub Pages.
+Aplicativo independente dos sistemas OficcerSeg. Marca fornecida pelo proprietário.
+O pedido manual continua disponível; usar contagem de estoque é opcional.
 
-Site: https://unclockers.github.io/lista-compras-bebidas/
+## Situação da publicação
 
-## Uso
+O GitHub Pages anterior (`https://unclockers.github.io/lista-compras-bebidas/`)
+é uma aplicação estática sem autenticação. Esta versão adiciona backend real.
+Não substituir a versão pública antes de definir a hospedagem HTTPS do backend,
+criar o primeiro administrador e conferir a migração dos dados locais.
 
-- Monte o pedido pelos botões +/− ou digite as quantidades.
-- Cadastros permite adicionar/editar produtos, categorias, unidade de compra,
-  quantidade usual, estoque mínimo e ideal.
-- Mínimo e ideal são opcionais e devem estar na mesma unidade do pedido.
-  Por exemplo: mínimo 5 fardos e ideal 20 fardos.
-- Sugestões iniciais são valores estimados, editáveis, não uma previsão de consumo.
-- Em Cadastros, baixe um backup antes de trocar de celular ou limpar o navegador.
-  A restauração substitui os dados locais; faça um backup antes.
-- O histórico só é salvo quando você toca em Salvar no histórico, não ao abrir o WhatsApp.
-- Renomear um produto também atualiza seu nome no pedido e no histórico local.
+**GitHub Pages não executa Node nem SQLite.** Neste projeto, o backend serve tanto
+a interface quanto a API no mesmo endereço HTTPS. Assim os cookies de sessão não
+dependem de permissões de terceiros entre dois domínios.
+O Pages pode continuar como uma página de entrada apontando para o endereço seguro.
+Não basta colocar senha no JavaScript ou esconder botões.
 
-## Limites importantes
+## Perfis
 
-Dados ficam no navegador de cada aparelho, não no GitHub. Não há login,
-sincronização nem contagem compartilhada nesta etapa. Backups contêm os dados
-dos pedidos e não devem ser adicionados ao repositório público.
-O catálogo inicial e as quantidades usuais no código são públicos no GitHub Pages.
+- **Administrador:** cadastra produtos, categorias e parâmetros; compartilha o
+  catálogo; cria/desativa contas; revisa contagens e gera o pedido.
+- **Colaborador:** consulta o catálogo, preenche/envia contagens e consulta suas
+  próprias contagens. Não altera catálogo, parâmetros, usuários ou pedidos.
+- Não há inscrição pública. O primeiro administrador é criado pelo terminal;
+  as demais contas são cadastradas pelo administrador em Equipe.
+- Senhas: 12 a 128 caracteres, scrypt com salt. Sessão de 8 horas em cookie
+  HttpOnly, SameSite=Strict e Secure em produção. Mudar senha/desativar conta
+  revoga as sessões. Há limite persistente de tentativas e validação de Origin
+  em operações de escrita. Não há senha padrão.
 
-O modo offline exige abrir o site com internet uma primeira vez em HTTPS.
-No Android use Instalar/Adicionar à tela inicial pelo navegador; no iPhone,
-Safari → Compartilhar → Adicionar à Tela de Início.
-Enviar pelo WhatsApp exige conexão, mesmo que o pedido tenha sido montado offline.
+## Catálogo compartilhado e pedido
 
-## Segunda etapa: contagem opcional por colaboradores
+1. Edite produtos/categorias em Cadastros.
+2. Informe a unidade (fardo, caixa, unidade etc.), mínimo e ideal.
+3. Use **Salvar catálogo online** para compartilhar com a equipe.
+4. Em outro aparelho, recarregue para buscar a revisão atual.
 
-Os parâmetros estão cadastráveis, mas a contagem ainda não está implementada.
-O modo manual deve continuar independente.
+Alterações concorrentes do catálogo são rejeitadas com HTTP 409, em vez de
+sobrescrever silenciosamente. Faça backup local antes de descartar conflitos.
+O pedido manual e o rascunho de contagem ficam separados por usuário/aparelho.
+O histórico local só é salvo pelo botão Salvar no histórico.
+Renomear um produto também atualiza seu nome no pedido e no histórico local.
 
-Fluxo proposto:
-1. Administrador configura unidade, mínimo e ideal por produto.
-2. Colaborador identificado inicia uma sessão de contagem, com data/hora.
-3. Quantidade em branco significa não contado; zero significa estoque zerado.
-4. Para itens contados abaixo do mínimo, sugerir `ideal - estoque contado`.
-   No mínimo ou acima, não sugerir reposição. Itens sem parâmetros ficam pendentes.
-5. Responsável revisa a sugestão e aprova o pedido antes de enviar ao fornecedor.
+## Contagem opcional
 
-Para vários aparelhos, adicionar backend autenticado com perfis de administrador
-e colaborador, armazenamento compartilhado, sincronização offline e resolução de
-conflitos. GitHub Pages continuará hospedando apenas o frontend. Não colocar
-chaves administrativas no JavaScript público.
+1. O colaborador entra com sua conta e toca em Contar estoque.
+2. Usa a mesma unidade configurada para compra. Branco significa **não contado**,
+   zero significa **estoque zerado**. Quantidades inteiras de 0 a 999.
+3. Ao tocar em Enviar contagem, o servidor grava autor, horário e revisão do
+   catálogo, e calcula a reposição. Falha de rede mantém o rascunho no aparelho;
+   não há envio automático oculto. Enviar de novo gera outra contagem identificada.
+4. O administrador abre Contagens enviadas e revisa a sugestão.
+5. Abaixo do mínimo: comprar `ideal - estoque contado`.
+   No mínimo ou acima: sem reposição. Itens não contados ou sem unidade/mínimo/ideal
+   são pendências, nunca tratados como estoque zero.
+6. Somente após aprovação a sugestão substitui o pedido manual, que ainda pode
+   ser editado antes de compartilhar pelo WhatsApp.
 
-## Desenvolvimento e publicação
+Exemplo: mínimo 5 fardos, ideal 20, contado 2 → comprar 18 fardos.
+As contagens não são somadas entre colaboradores; cada sessão é independente.
+Contagens de revisão antiga não geram pedidos no catálogo novo: solicite nova
+contagem. Não há conversão automática de caixas em unidades ou frações.
+
+## Offline, privacidade e backup
+
+- Entre com internet. Enquanto a página autenticada estiver aberta, pode editar o
+  pedido/contagem offline; enviar ao servidor e WhatsApp exige internet.
+- Reabrir/recarregar offline mostra login, não concede acesso usando apenas
+  informação do navegador. Não há login offline.
+- Logout remove o cache local daquele usuário neste aparelho; baixe backup antes
+  de sair se precisar guardar rascunho/histórico. Contagens enviadas ficam no servidor.
+- O service worker armazena somente arquivos da interface; nunca respostas `/api/`.
+- Backup JSON local não contém senhas. Restauração substitui os dados locais;
+  publicar o catálogo restaurado requer ação explícita do administrador.
+- Backups v2 da versão anterior são aceitos pelo administrador. Dados de outro
+  domínio não migram automaticamente: exporte antes da troca de endereço.
+- O repositório é público: o catálogo inicial de exemplo já foi publicado.
+  Não versionar contagens, banco SQLite, arquivos `.env`, senhas ou backups.
+  Cadastros reais da equipe e contagens são armazenados apenas no banco do servidor.
+- Em dispositivos compartilhados, não basta fechar a aba: use Sair. O navegador
+  mantém o rascunho local para recuperação até o logout.
+
+## Executar localmente
+
+Requer **Node.js 24 ou superior**. O backend usa SQLite nativo, sem serviço de banco externo.
 
 ```powershell
 npm.cmd ci
+npm.cmd run create-admin -- admin
+$env:NODE_ENV="development"
+$env:PUBLIC_ORIGIN="http://127.0.0.1:8770"
+npm.cmd start
+```
+
+O comando create-admin solicita a senha no terminal sem exibi-la, nunca em
+argumento de linha de comando ou no chat. Abra `http://127.0.0.1:8770`.
+Só usar NODE_ENV=development em testes locais, pois desabilita Secure do cookie.
+
+## Publicação do backend (pendente de autorização do ambiente)
+
+- Processo separado, usuário/serviço separado dos condomínios.
+- Node 24+, volume persistente privado para `DATABASE_FILE`, backup SQLite
+  consistente (usar API de backup/SQLite, não copiar apenas o arquivo durante escrita).
+- `PUBLIC_ORIGIN=https://endereco-do-aplicativo` (sem barra final).
+- `PORT=8770`, `DATABASE_FILE=/caminho-privado/villas.sqlite`.
+- Não definir NODE_ENV=development em produção.
+- Proxy HTTPS encaminha **interface e /api/** ao Node na interface 127.0.0.1.
+- Criar administrador no próprio servidor e guardar a senha fora do repositório.
+- Não expor a porta local diretamente nem alterar serviços existentes sem aprovação.
+- Por padrão o limite de login considera o IP do proxy, sem confiar cegamente
+  em X-Forwarded-For. Em proxy compartilhado isso pode limitar vários usuários
+  após 15 erros em 15 minutos; revisar a política antes de escalar o uso.
+- O workflow de Pages publica somente arquivos estáticos, não implanta o backend.
+
+## Validação
+
+```powershell
 npx.cmd playwright install chromium
 npm.cmd test
 ```
 
-Os testes abrem um servidor local temporário na porta 8766 e cobrem cadastros,
-pedido, persistência, migração, backup, modo offline e telas de 320 a 768 pixels.
-Não substituem homologação em aparelho físico, Safari ou compartilhamento WhatsApp.
-
-O workflow [.github/workflows/pages.yml](.github/workflows/pages.yml) publica só
-os quatro arquivos do aplicativo. Configure Pages para GitHub Actions e use
-a branch main. Histórico e backups locais não são publicados.
+Testes de API usam SQLite em memória e senhas exclusivamente de teste, sem criar
+usuários no banco real. Cobrem autenticação, permissões, CSRF, limitação de login,
+sessões, conflito de catálogo, autoria e cálculo de contagens.
+Os testes de navegador sobem/encerram um servidor temporário na porta 8766 e cobrem
+cadastros, pedido, backup, contagem, perfis e telas de 320 a 768 pixels.
+Não substituem teste no aparelho físico/Safari/WhatsApp e smoke test após publicação.
