@@ -191,8 +191,10 @@ let falhaLeitura = false;
 try {
   salvo = JSON.parse(localStorage.getItem(CHAVE) || "{}");
   if (!salvo || typeof salvo !== "object" || Array.isArray(salvo)) throw new Error("Formato inválido");
+  if (salvo.versao === 2) validarBackup(salvo);
 } catch (erro) {
   falhaLeitura = true;
+  salvo = {};
   console.error("Não foi possível ler os dados salvos", erro);
   alert("Os dados salvos não puderam ser lidos. Nada será sobrescrito automaticamente. Restaure um backup em Cadastros.");
 }
@@ -262,6 +264,8 @@ function linhaItem(p, ult) {
   const n = document.createElement("div");
   n.className = "nome"; n.textContent = nome;
   const info = [];
+  const unidade = estado.parametros[nome]?.unidade;
+  if (unidade) info.push(unidade);
   if (ult && ult[nome]) info.push("último: " + ult[nome]);
   if (p[2]) info.push("usual: " + p[2]);
   if (info.length) { const s = document.createElement("small"); s.textContent = info.join(" · "); n.appendChild(s); }
@@ -270,19 +274,24 @@ function linhaItem(p, ult) {
   caixa.className = "qtd";
   const menos = document.createElement("button"); menos.textContent = "−"; menos.setAttribute("aria-label","diminuir");
   const campo = document.createElement("input");
-  campo.type = "number"; campo.inputMode = "numeric"; campo.min = "0"; campo.value = q;
+  campo.type = "number"; campo.inputMode = "numeric"; campo.min = "0"; campo.max = "999"; campo.step = "1"; campo.value = q;
   campo.setAttribute("aria-label", "Quantidade de " + nome);
   const mais = document.createElement("button"); mais.textContent = "+"; mais.className = "mais"; mais.setAttribute("aria-label","aumentar");
 
   const aplicar = v => {
-    v = Math.max(0, Math.min(999, parseInt(v, 10) || 0));
+    if (v === "" || !Number.isInteger(Number(v)) || Number(v) < 0 || Number(v) > 999) {
+      alert("Informe uma quantidade inteira entre 0 e 999.");
+      campo.value = estado.qtd[nome] || 0;
+      return;
+    }
+    v = Number(v);
     if (v > 0) estado.qtd[nome] = v; else delete estado.qtd[nome];
     campo.value = v;
     div.className = "item" + (v > 0 ? " sel" : "");
     persistir(); atualizarTotal();
   };
-  menos.onclick = () => aplicar((estado.qtd[nome] || 0) - 1);
-  mais.onclick = () => aplicar((estado.qtd[nome] || 0) + 1);
+  menos.onclick = () => aplicar(Math.max(0, (estado.qtd[nome] || 0) - 1));
+  mais.onclick = () => aplicar(Math.min(999, (estado.qtd[nome] || 0) + 1));
   campo.onchange = () => aplicar(campo.value);
   campo.onfocus = () => campo.select();
   caixa.append(menos, campo, mais);

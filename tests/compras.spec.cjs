@@ -59,6 +59,13 @@ test("validação de duplicados e parâmetros inválidos", async ({ page }) => {
   expect(mensagens).toContain("Preencha mínimo e ideal juntos. O ideal deve ser maior ou igual ao mínimo.");
 });
 
+test("quantidade fracionada é rejeitada sem alterar o pedido", async ({ page }) => {
+  const campo = page.getByRole("spinbutton", {name:"Quantidade de COCA 2LT",exact:true});
+  await campo.fill("2.5");
+  await campo.blur();
+  await expect(campo).toHaveValue("0");
+});
+
 test("backup exportado é restaurado e arquivo inválido é rejeitado", async ({ page }) => {
   await page.locator("#btnSugestao").click();
   await page.locator("#btnCadastros").click();
@@ -96,6 +103,7 @@ for (const width of [320, 360, 390, 430, 768]) {
     const plus = await page.locator(".mais").first().boundingBox();
     expect(plus.width).toBeGreaterThanOrEqual(44);
     expect(plus.height).toBeGreaterThanOrEqual(44);
+    await page.screenshot({ path: `test-results/pedido-${width}.png` });
     await page.locator("#btnCadastros").click();
     await page.locator("#cadNovoProduto").click();
     const dialog = await page.locator("#dlgNovo").boundingBox();

@@ -1,4 +1,4 @@
-const CACHE = "lista-compras-v2";
+const CACHE = "lista-compras-v3";
 const ARQUIVOS = ["./", "./index.html", "./manifest.json", "./icon.svg"];
 
 self.addEventListener("install", e => {

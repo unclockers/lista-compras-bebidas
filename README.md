@@ -2,6 +2,8 @@
 
 Aplicativo independente dos sistemas OficcerSeg, hospedável no GitHub Pages.
 
+Site: https://unclockers.github.io/lista-compras-bebidas/
+
 ## Uso
 
 - Monte o pedido pelos botões +/− ou digite as quantidades.
