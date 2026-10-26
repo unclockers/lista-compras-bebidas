@@ -3,10 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0f766e">
+<meta name="theme-color" content="#151515">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icon.svg">
-<title>Lista de Compras</title>
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Villas Beer • Lista de Compras</title>
 <style>
   :root { --verde:#0f766e; --verde-claro:#ccfbf1; --cinza:#f1f5f9; --borda:#e2e8f0; --texto:#0f172a; --suave:#64748b; }
   * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -59,6 +60,8 @@
   .cadastro-lista { max-height:40vh; overflow-y:auto; margin-top:10px; }
   .cadastro-lista button { display:block; width:100%; text-align:left; background:var(--cinza); border:0; border-radius:8px; padding:10px; margin:6px 0; overflow-wrap:anywhere; }
   .campo-duplo { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .marca { background:#080808; text-align:center; padding:10px; }
+  .marca img { width:180px; max-width:70%; height:auto; display:block; margin:auto; }
   @media (max-width:360px) {
     .item { flex-wrap:wrap; }
     .nome { flex-basis:100%; }
@@ -72,6 +75,7 @@
 </style>
 </head>
 <body>
+<div class="marca"><img src="logo.jpg" alt="Villas Beer Distribuidora"></div>
 <header>
   <div class="linha"><h1>Lista de compras</h1><span class="total" id="total">0 itens</span></div>
   <input type="search" id="busca" placeholder="Buscar produto..." autocomplete="off">
@@ -85,7 +89,7 @@
   <button id="btnCadastros">Cadastros</button>
   <button id="btnLimpar">Limpar</button>
 </div>
-<p class="aviso" id="status" role="status">Dados salvos somente neste navegador. Faça backup antes de trocar de aparelho.</p>
+<p class="aviso" id="status" role="status">Versão local sem login: qualquer pessoa com o link abre o catálogo inicial. Seus pedidos ficam neste navegador. Faça backup antes de trocar de aparelho.</p>
 
 <main id="lista"></main>
 

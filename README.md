@@ -1,5 +1,12 @@
 # Lista de compras de bebidas
 
+Marca Villas Beer aplicada com a imagem fornecida pelo proprietário.
+
+**Atenção:** esta versão de Pages continua pública, sem login e com dados locais.
+A versão com backend autenticado e contagem compartilhada está na branch
+`feat/villas-equipe-estoque`, aguardando definição da hospedagem HTTPS.
+Não misturar dados reais da equipe ou estoque no código público.
+
 Aplicativo independente dos sistemas OficcerSeg, hospedável no GitHub Pages.
 
 Site: https://unclockers.github.io/lista-compras-bebidas/

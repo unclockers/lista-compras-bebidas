@@ -1,5 +1,5 @@
-const CACHE = "lista-compras-v3";
-const ARQUIVOS = ["./", "./index.html", "./manifest.json", "./icon.svg"];
+const CACHE = "lista-compras-brand-v1";
+const ARQUIVOS = ["./", "./index.html", "./manifest.json", "./icon.svg", "./logo.jpg", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ARQUIVOS)));
