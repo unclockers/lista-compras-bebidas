@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f766e">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg">
+<title>Lista de Compras</title>
+<style>
+  :root { --verde:#0f766e; --verde-claro:#ccfbf1; --cinza:#f1f5f9; --borda:#e2e8f0; --texto:#0f172a; --suave:#64748b; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  body { margin:0; font-family:system-ui,Segoe UI,Arial,sans-serif; background:var(--cinza); color:var(--texto); padding-bottom:92px; }
+  header { position:sticky; top:0; z-index:10; background:#fff; border-bottom:1px solid var(--borda); padding:10px 12px 8px; }
+  .linha { display:flex; gap:8px; align-items:center; }
+  h1 { font-size:18px; margin:0 0 8px; flex:1; }
+  .total { font-size:13px; color:#fff; background:var(--verde); border-radius:99px; padding:4px 12px; font-weight:700; white-space:nowrap; }
+  input[type=search] { width:100%; font-size:17px; padding:11px 12px; border:1px solid var(--borda); border-radius:10px; background:var(--cinza); }
+  .chips { display:flex; gap:6px; overflow-x:auto; padding:8px 0 2px; scrollbar-width:none; }
+  .chips::-webkit-scrollbar { display:none; }
+  .chip { flex:none; border:1px solid var(--borda); background:#fff; border-radius:99px; padding:7px 13px; font-size:14px; font-weight:600; color:var(--suave); }
+  .chip.on { background:var(--verde); color:#fff; border-color:var(--verde); }
+  .acoes { display:flex; gap:6px; padding:8px 12px 0; flex-wrap:wrap; }
+  .acoes button { flex:1; min-width:110px; border:1px solid var(--borda); background:#fff; border-radius:10px; padding:10px 8px; font-size:14px; font-weight:600; color:var(--texto); }
+  .cat { padding:14px 14px 6px; font-size:13px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; color:var(--suave); }
+  .item { display:flex; align-items:center; gap:8px; background:#fff; margin:0 10px 6px; padding:8px 8px 8px 12px; border-radius:12px; border:1px solid var(--borda); }
+  .item.sel { background:var(--verde-claro); border-color:#5eead4; }
+  .nome { flex:1; font-size:15px; line-height:1.2; font-weight:600; }
+  .nome small { display:block; font-weight:400; color:var(--suave); font-size:12px; margin-top:2px; }
+  .qtd { display:flex; align-items:center; gap:4px; }
+  .qtd button { width:46px; height:46px; border-radius:12px; border:0; background:var(--cinza); font-size:26px; font-weight:700; color:var(--texto); }
+  .qtd button.mais { background:var(--verde); color:#fff; }
+  .qtd input { width:52px; height:46px; text-align:center; font-size:20px; font-weight:800; border:1px solid var(--borda); border-radius:10px; background:#fff; padding:0; }
+  .vazio { text-align:center; color:var(--suave); padding:30px 16px; }
+  .rodape { position:fixed; left:0; right:0; bottom:0; background:#fff; border-top:1px solid var(--borda); padding:10px 12px calc(10px + env(safe-area-inset-bottom)); display:flex; gap:8px; z-index:10; }
+  .rodape button { border:0; border-radius:12px; padding:14px 10px; font-size:16px; font-weight:800; }
+  .rodape .zap { flex:2; background:#16a34a; color:#fff; }
+  .rodape .sec { flex:1; background:var(--cinza); color:var(--texto); }
+  dialog { border:0; border-radius:16px; padding:18px; width:min(92vw,440px); max-height:86vh; }
+  dialog::backdrop { background:rgba(15,23,42,.5); }
+  dialog h2 { margin:0 0 10px; font-size:18px; }
+  dialog label { display:block; font-size:13px; font-weight:700; margin:10px 0 4px; color:var(--suave); }
+  dialog input, dialog select, dialog textarea { width:100%; font-size:16px; padding:10px; border:1px solid var(--borda); border-radius:10px; font-family:inherit; }
+  dialog textarea { min-height:240px; font-family:ui-monospace,Consolas,monospace; font-size:14px; }
+  .botoes { display:flex; gap:8px; margin-top:14px; }
+  .botoes button { flex:1; border:0; border-radius:10px; padding:12px; font-size:15px; font-weight:700; background:var(--cinza); }
+  .botoes .ok { background:var(--verde); color:#fff; }
+  .botoes .zap { background:#16a34a; color:#fff; }
+  .hist { padding:10px 0; border-bottom:1px solid var(--borda); display:flex; gap:8px; align-items:center; }
+  .hist div { flex:1; font-size:14px; }
+  .hist small { color:var(--suave); display:block; }
+  .hist button { border:0; background:var(--verde); color:#fff; border-radius:8px; padding:8px 10px; font-weight:700; }
+  .nome { min-width:0; overflow-wrap:anywhere; }
+  .qtd { flex-shrink:0; }
+  .linha { flex-wrap:wrap; }
+  .aviso { margin:10px 12px; font-size:13px; color:var(--suave); }
+  button { cursor:pointer; min-height:44px; }
+  dialog { overflow-y:auto; }
+  .cadastro-lista { max-height:40vh; overflow-y:auto; margin-top:10px; }
+  .cadastro-lista button { display:block; width:100%; text-align:left; background:var(--cinza); border:0; border-radius:8px; padding:10px; margin:6px 0; overflow-wrap:anywhere; }
+  .campo-duplo { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  @media (max-width:360px) {
+    .item { flex-wrap:wrap; }
+    .nome { flex-basis:100%; }
+    .qtd { margin-left:auto; }
+    .rodape button { font-size:14px; }
+  }
+  @media (min-width:768px) {
+    body { max-width:900px; margin:auto; }
+    .rodape { max-width:900px; margin:auto; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="linha"><h1>Lista de compras</h1><span class="total" id="total">0 itens</span></div>
+  <input type="search" id="busca" placeholder="Buscar produto..." autocomplete="off">
+  <div class="chips" id="chips"></div>
+</header>
+
+<div class="acoes">
+  <button id="btnSugestao">Usar sugestão</button>
+  <button id="btnUltimo">Repetir último</button>
+  <button id="btnNovo">+ Produto</button>
+  <button id="btnCadastros">Cadastros</button>
+  <button id="btnLimpar">Limpar</button>
+</div>
+<p class="aviso" id="status" role="status">Dados salvos somente neste navegador. Faça backup antes de trocar de aparelho.</p>
+
+<main id="lista"></main>
+
+<div class="rodape">
+  <button class="sec" id="btnHistorico">Histórico</button>
+  <button class="zap" id="btnEnviar">Enviar pelo WhatsApp</button>
+</div>
+
+<dialog id="dlgEnviar">
+  <h2>Pedido pronto</h2>
+  <textarea id="textoPedido" readonly></textarea>
+  <div class="botoes">
+    <button id="btnCopiar">Copiar</button>
+    <button class="zap" id="btnZap">WhatsApp</button>
+  </div>
+  <div class="botoes"><button id="fecharEnviar">Fechar (não salvar)</button><button class="ok" id="btnSalvar">Salvar no histórico</button></div>
+</dialog>
+
+<dialog id="dlgNovo">
+  <h2 id="tituloProduto">Novo produto</h2>
+  <label>Nome</label><input id="novoNome" placeholder="Ex.: COCA 1LT" autocapitalize="characters">
+  <label>Categoria</label><select id="novoCat"></select>
+  <label for="produtoUnidade">Unidade de compra/contagem</label><input id="produtoUnidade" placeholder="Ex.: fardo com 12, caixa, unidade">
+  <label for="produtoUsual">Quantidade usual do pedido (0 a 999)</label><input type="number" min="0" max="999" step="1" id="produtoUsual" inputmode="numeric" value="0">
+  <p class="aviso">Parâmetros para a futura contagem: use a mesma unidade do pedido. Não são calculados pelas compras anteriores.</p>
+  <div class="campo-duplo">
+    <div><label for="produtoMinimo">Estoque mínimo</label><input type="number" min="0" max="999" step="1" id="produtoMinimo" inputmode="numeric" placeholder="Não configurado"></div>
+    <div><label for="produtoIdeal">Estoque ideal</label><input type="number" min="0" max="999" step="1" id="produtoIdeal" inputmode="numeric" placeholder="Não configurado"></div>
+  </div>
+  <div class="botoes"><button id="cancelarNovo">Cancelar</button><button class="ok" id="salvarNovo">Adicionar</button></div>
+</dialog>
+
+<dialog id="dlgCadastros">
+  <h2>Cadastros</h2>
+  <p>Toque em um produto para editar nome, categoria, unidade e parâmetros.</p>
+  <div class="botoes"><button id="cadNovoProduto" class="ok">+ Produto</button><button id="cadCategorias">Categorias</button></div>
+  <label for="buscaCadastro">Buscar produto</label><input id="buscaCadastro" type="search" placeholder="Nome do produto">
+  <div class="cadastro-lista" id="cadastroProdutos"></div>
+  <div class="botoes"><button id="exportarBackup">Baixar backup</button><button id="importarBackup">Restaurar backup</button></div>
+  <input id="arquivoBackup" type="file" accept=".json,application/json" hidden>
+  <div class="botoes"><button id="fecharCadastros">Fechar</button></div>
+</dialog>
+<dialog id="dlgCategorias">
+  <h2>Categorias</h2>
+  <label for="categoriaEscolhida">Editar ou criar</label><select id="categoriaEscolhida"></select>
+  <label for="categoriaNome">Nome da categoria</label><input id="categoriaNome" maxlength="60">
+  <div class="botoes"><button id="fecharCategorias">Voltar</button><button id="salvarCategoria" class="ok">Salvar</button></div>
+</dialog>
+<dialog id="dlgHistorico">
+  <h2>Pedidos anteriores</h2>
+  <div id="listaHistorico"></div>
+  <div class="botoes"><button id="fecharHistorico">Fechar</button></div>
+</dialog>
+
+<script>
+const CATEGORIAS = ["Refrigerantes","Cervejas","Águas","Sucos e isotônicos","Energéticos","Ice e prontos","Destilados","Outros"];
+
+// [nome, categoria, quantidade usual]
+const CATALOGO_BASE = [
+  ["COCA 2LT",0,10],["COCA ZERO 2LT",0,6],["MINEIRO 2LT",0,4],["FANTA 2LT",0,1],["SPRITE 2LT",0,1],
+  ["GUARANA ANTARTICA 2LT",0,1],["GUARANA ZERO ANTARTICA 2LT",0,1],["PEPSI BLACK 2LT",0,0],
+  ["COCA 600ML",0,1],["COCA ZERO 600ML",0,1],["MINEIRO 600ML",0,2],["GUARANA ANTARTICA 600ML",0,1],["GUARANA ZERO ANTARTICA 600ML",0,1],
+  ["COCA LATA",0,6],["COCA ZERO LATA",0,3],["PEPSI TWIST BLACK LATA",0,3],["SPRITE LATA",0,3],["SPRITE ZERO LATA",0,3],
+  ["MINEIRO LATA",0,3],["GUARANA ANTARTICA LATA",0,1],["GUARANA LATA",0,0],["FANTA UVA LATA",0,1],["FANTA LARANJA LATA",0,1],
+  ["TONICA ANTARTICA LATA",0,1],["TONICA ZERO ANTARTICA LATA",0,0],
+  ["H2OH LIMONETO 500ML",0,1],["H2OH LIMAO 500ML",0,1],["PITCHULA",0,1],["TODYNHO",0,0],
+
+  ["BRAHMA LATA",1,12],["ORIGINAL LATA",1,8],["ANTARTICA LATA",1,8],["SKOL LATA",1,0],["BAVARIA LATA",1,0],
+  ["CARACU LATA",1,0],["HEINEKEN LATA",1,0],["IMPERIO BRANCA LATA",1,4],["IMPERIO VERDE LATA",1,2],
+  ["STELLA PURE GOLD LONG NECK",1,4],["STELLA LONG NECK",1,1],["BUDWEISER LONG NECK",1,1],["MICHELOB LONG NECK",1,1],
+  ["SOL LONG NECK",1,1],["CORONA LONG NECK",1,1],["CORONA ZERO LONG NECK",1,1],["BECKS LONG NECK",1,0],
+  ["SPATEN LONG NECK",1,0],["HEINEKEN LONG NECK PACK C/6",1,0],
+  ["SKOL BEATS LONG NECK GT",1,0],["SKOL BEATS LONG NECK AZUL",1,0],["SKOL BEATS LONG NECK VERMELHA",1,0],
+
+  ["AGUA NATIVA 1,5 LITROS",2,8],["AGUA NATIVA 500ML",2,10],["AGUA LIA CRYSTAL C/ GAS 1500ML",2,6],
+  ["AGUA LIA CRYSTAL C/ GAS 500ML",2,8],["AGUA DE COCO 1LT C/8",2,0],
+
+  ["LAFRUIT UVA 200ML",3,1],["LAFRUIT MARACUJA 200ML",3,1],["LAFRUIT UVA 1LT",3,0],["LAFRUIT MARACUJA 1LT",3,0],
+  ["LAFRUIT PESSEGO 1LT",3,0],["LAFRUIT CAJU 1LT",3,0],["LAFRUIT MANGA 1LT",3,0],
+  ["GATORADE AZUL",3,0],["GATORADE LIMAO",3,0],["GATORADE MARACUJA",3,0],["GATORADE MORANGO",3,0],
+  ["GATORADE LARANJA",3,0],["GATORADE UVA",3,0],["GATORADE TANGERINA",3,0],["GATORADE BLUEBERRY",3,0],
+
+  ["REDBULL TRADICIONAL 250ML PACK C/4",4,6],["REDBULL ZERO TRADICIONAL 250ML PACK C/4",4,6],
+  ["REDBULL MELANCIA 250ML PACK C/4",4,0],["REDBULL TROPICAL 250ML PACK C/4",4,0],
+  ["MONSTER TRADICIONAL",4,4],["MONSTER TRADICIONAL ZERO",4,4],["MONSTER MANGO LOKO",4,4],["MONSTER MANGO LOKO ZERO",4,0],
+  ["MONSTER ULTRA VIOLET",4,0],["MONSTER MORANGO",4,4],["MONSTER PESSEGO",4,0],["MONSTER ROSA",4,0],["MONSTER RIO",4,0],
+  ["MONSTER BRANCO",4,0],["MONSTER KAOTIC",4,0],["MONSTER UVA",4,0],["MONSTER LARANJA",4,0],
+  ["EXTRA POWER 1,5LT",4,2],["EXTRA POWER 2LT",4,2],["EXTRA POWER 269ML PACK C/6",4,0],["EXTRA POWER 473ML PACK C/6",4,0],
+  ["EXTRA POWER LATAO",4,0],["BALLY TROPICAL 2LT",4,0],
+
+  ["SMIRNOFF ICE LONG PACK C/6",5,0],["51 ICE LIMAO LONG PACK C/6",5,0],["51 ICE CABARE LONG PACK C/6",5,0],
+  ["51 ICE BALADA LONG PACK C/6",5,0],["FIU-FIU ICE CHICLETIN PACK C/6",5,0],["FIU-FIU ICE CAJALEMON PACK C/6",5,0],
+  ["SMIRNOFF ICE C/24",5,0],["51 ICE LIMAO C/24",5,0],
+
+  ["CAMPARI",6,2],["VODKA SMIRNOFF 1LT",6,0],["PINGA 51",6,0],["VELHO BARREIRO",6,0],["BUSCA BRISA GARRAFA",6,0],
+
+  ["ISQUEIRO BIC MINI",7,0],["ISQUEIRO BIC MAX",7,0],["PARATUDO",7,0],["NEVADA",7,0],["COPO PARA DOSE",7,0]
+];
+
+const CHAVE = "listaCompras.v1";
+let salvo = {};
+let falhaLeitura = false;
+try {
+  salvo = JSON.parse(localStorage.getItem(CHAVE) || "{}");
+  if (!salvo || typeof salvo !== "object" || Array.isArray(salvo)) throw new Error("Formato inválido");
+} catch (erro) {
+  falhaLeitura = true;
+  console.error("Não foi possível ler os dados salvos", erro);
+  alert("Os dados salvos não puderam ser lidos. Nada será sobrescrito automaticamente. Restaure um backup em Cadastros.");
+}
+const estado = {
+  extras: salvo.extras || [],       // produtos adicionados por voce
+  qtd: salvo.qtd || {},             // pedido em andamento
+  historico: salvo.historico || [], // pedidos enviados
+  cat: -1,
+  busca: ""
+};
+estado.categorias = salvo.categorias || CATEGORIAS.slice();
+estado.produtos = salvo.produtos || CATALOGO_BASE.concat(estado.extras.map(e => [e.nome,e.cat,0]));
+estado.parametros = salvo.parametros || {};
+function dados() {
+  return {versao:2, categorias:estado.categorias, produtos:estado.produtos, parametros:estado.parametros, qtd:estado.qtd, historico:estado.historico};
+}
+function persistir() {
+  if (falhaLeitura) {
+    alert("Os dados anteriores estão ilegíveis. Restaure um backup válido antes de salvar.");
+    return;
+  }
+  try { localStorage.setItem(CHAVE, JSON.stringify(dados())); }
+  catch (erro) {
+    console.error("Não foi possível salvar os dados", erro);
+    $("status").textContent = "Falha ao salvar neste navegador. Baixe um backup em Cadastros para não perder os dados.";
+    alert("Não foi possível salvar. Baixe um backup em Cadastros.");
+  }
+}
+
+function catalogo() {
+  return estado.produtos;
+}
+function norm(s) { return s.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase(); }
+function ultimoPedido() { return estado.historico.length ? estado.historico[0].itens : null; }
+function dois(n) { return String(n).padStart(2,"0"); }
+
+const $ = id => document.getElementById(id);
+
+function desenhar() {
+  const lista = $("lista");
+  lista.textContent = "";
+  const ult = ultimoPedido();
+  const busca = norm(estado.busca.trim());
+  let mostrou = 0;
+  estado.categorias.forEach((nomeCat, idx) => {
+    if (estado.cat >= 0 && estado.cat !== idx) return;
+    const itens = catalogo().filter(p => p[1] === idx && (!busca || norm(p[0]).includes(busca)));
+    if (!itens.length) return;
+    const h = document.createElement("div");
+    h.className = "cat"; h.textContent = nomeCat;
+    lista.appendChild(h);
+    itens.forEach(p => { lista.appendChild(linhaItem(p, ult)); mostrou++; });
+  });
+  if (!mostrou) {
+    const v = document.createElement("div");
+    v.className = "vazio"; v.textContent = "Nenhum produto encontrado. Use \"+ Produto\" para cadastrar.";
+    lista.appendChild(v);
+  }
+  atualizarTotal();
+}
+
+function linhaItem(p, ult) {
+  const nome = p[0];
+  const q = estado.qtd[nome] || 0;
+  const div = document.createElement("div");
+  div.className = "item" + (q > 0 ? " sel" : "");
+  const n = document.createElement("div");
+  n.className = "nome"; n.textContent = nome;
+  const info = [];
+  if (ult && ult[nome]) info.push("último: " + ult[nome]);
+  if (p[2]) info.push("usual: " + p[2]);
+  if (info.length) { const s = document.createElement("small"); s.textContent = info.join(" · "); n.appendChild(s); }
+
+  const caixa = document.createElement("div");
+  caixa.className = "qtd";
+  const menos = document.createElement("button"); menos.textContent = "−"; menos.setAttribute("aria-label","diminuir");
+  const campo = document.createElement("input");
+  campo.type = "number"; campo.inputMode = "numeric"; campo.min = "0"; campo.value = q;
+  campo.setAttribute("aria-label", "Quantidade de " + nome);
+  const mais = document.createElement("button"); mais.textContent = "+"; mais.className = "mais"; mais.setAttribute("aria-label","aumentar");
+
+  const aplicar = v => {
+    v = Math.max(0, Math.min(999, parseInt(v, 10) || 0));
+    if (v > 0) estado.qtd[nome] = v; else delete estado.qtd[nome];
+    campo.value = v;
+    div.className = "item" + (v > 0 ? " sel" : "");
+    persistir(); atualizarTotal();
+  };
+  menos.onclick = () => aplicar((estado.qtd[nome] || 0) - 1);
+  mais.onclick = () => aplicar((estado.qtd[nome] || 0) + 1);
+  campo.onchange = () => aplicar(campo.value);
+  campo.onfocus = () => campo.select();
+  caixa.append(menos, campo, mais);
+  div.append(n, caixa);
+  return div;
+}
+
+function atualizarTotal() {
+  const nomes = Object.keys(estado.qtd);
+  const un = nomes.reduce((s, k) => s + estado.qtd[k], 0);
+  $("total").textContent = nomes.length + (nomes.length === 1 ? " produto" : " produtos") + " · " + un + " un";
+}
+
+function chips() {
+  const box = $("chips");
+  box.textContent = "";
+  ["Todos"].concat(estado.categorias).forEach((nome, i) => {
+    const b = document.createElement("button");
+    b.className = "chip" + (estado.cat === i - 1 ? " on" : "");
+    b.textContent = nome;
+    b.onclick = () => { estado.cat = i - 1; chips(); desenhar(); };
+    box.appendChild(b);
+  });
+}
+
+function textoDoPedido(qtd) {
+  const linhas = [];
+  catalogo().slice().sort((a, b) => a[1] - b[1]).forEach(p => {
+    const q = qtd[p[0]];
+    if (q > 0) linhas.push(dois(q) + "X - " + p[0]);
+  });
+  // itens de pedidos antigos que nao estao mais no catalogo
+  Object.keys(qtd).forEach(k => {
+    if (!catalogo().some(p => p[0] === k) && qtd[k] > 0) linhas.push(dois(qtd[k]) + "X - " + k);
+  });
+  return linhas.join("\n");
+}
+
+$("busca").oninput = e => { estado.busca = e.target.value; desenhar(); };
+
+$("btnSugestao").onclick = () => {
+  if (Object.keys(estado.qtd).length && !confirm("Substituir as quantidades atuais pela sugestão (valores usuais)?")) return;
+  estado.qtd = {};
+  catalogo().forEach(p => { if (p[2] > 0) estado.qtd[p[0]] = p[2]; });
+  persistir(); desenhar();
+};
+$("btnUltimo").onclick = () => {
+  const u = ultimoPedido();
+  if (!u) { alert("Ainda não há pedido salvo no histórico."); return; }
+  if (Object.keys(estado.qtd).length && !confirm("Substituir as quantidades atuais pelo último pedido?")) return;
+  estado.qtd = Object.assign({}, u);
+  persistir(); desenhar();
+};
+$("btnLimpar").onclick = () => {
+  if (!Object.keys(estado.qtd).length) return;
+  if (confirm("Zerar todas as quantidades?")) { estado.qtd = {}; persistir(); desenhar(); }
+};
+
+$("btnEnviar").onclick = () => {
+  const t = textoDoPedido(estado.qtd);
+  if (!t) { alert("Nenhum item com quantidade."); return; }
+  $("textoPedido").value = t;
+  $("dlgEnviar").showModal();
+};
+$("btnCopiar").onclick = async () => {
+  try { await navigator.clipboard.writeText($("textoPedido").value); alert("Copiado."); }
+  catch (e) {
+    $("textoPedido").select();
+    if (document.execCommand("copy")) alert("Copiado.");
+    else alert("Não foi possível copiar automaticamente. Selecione o texto e copie manualmente.");
+  }
+};
+$("btnZap").onclick = () => {
+  window.open("https://wa.me/?text=" + encodeURIComponent($("textoPedido").value), "_blank");
+};
+$("fecharEnviar").onclick = () => $("dlgEnviar").close();
+$("btnSalvar").onclick = () => {
+  estado.historico.unshift({ data: new Date().toISOString(), itens: Object.assign({}, estado.qtd) });
+  estado.historico = estado.historico.slice(0, 30);
+  persistir(); $("dlgEnviar").close(); desenhar();
+  alert("Pedido salvo no histórico.");
+};
+
+let produtoEditado = null;
+function abrirProduto(nome = null) {
+  produtoEditado = nome;
+  const produto = catalogo().find(p => p[0] === nome);
+  const parametros = estado.parametros[nome] || {};
+  const sel = $("novoCat");
+  sel.textContent = "";
+  estado.categorias.forEach((c, i) => { const o = document.createElement("option"); o.value = i; o.textContent = c; sel.appendChild(o); });
+  sel.value = produto ? produto[1] : Math.max(0, estado.cat);
+  $("novoNome").value = produto ? produto[0] : $("busca").value.toUpperCase();
+  $("produtoUsual").value = produto ? produto[2] : 0;
+  $("produtoUnidade").value = parametros.unidade || "";
+  $("produtoMinimo").value = parametros.minimo ?? "";
+  $("produtoIdeal").value = parametros.ideal ?? "";
+  $("tituloProduto").textContent = produto ? "Editar produto" : "Novo produto";
+  $("salvarNovo").textContent = produto ? "Salvar alterações" : "Adicionar";
+  $("dlgNovo").showModal();
+}
+$("btnNovo").onclick = () => abrirProduto();
+$("cancelarNovo").onclick = () => $("dlgNovo").close();
+$("salvarNovo").onclick = () => {
+  const nome = $("novoNome").value.trim().toUpperCase();
+  if (!nome || nome.length > 120 || /[\r\n]/.test(nome)) { alert("Informe um nome de produto entre 1 e 120 caracteres."); return; }
+  if (catalogo().some(p => p[0] !== produtoEditado && norm(p[0]) === norm(nome))) { alert("Esse produto já existe."); return; }
+  const usual = Number($("produtoUsual").value);
+  const minimo = $("produtoMinimo").value === "" ? null : Number($("produtoMinimo").value);
+  const ideal = $("produtoIdeal").value === "" ? null : Number($("produtoIdeal").value);
+  if ($("produtoUsual").value === "" || [usual,minimo,ideal].some(v => v !== null && (!Number.isInteger(v) || v < 0 || v > 999))) {
+    alert("As quantidades devem ser inteiras, entre 0 e 999."); return;
+  }
+  if ((minimo === null) !== (ideal === null) || (minimo !== null && ideal < minimo)) {
+    alert("Preencha mínimo e ideal juntos. O ideal deve ser maior ou igual ao mínimo."); return;
+  }
+  const produto = [nome, Number($("novoCat").value), usual];
+  if (produtoEditado) {
+    const idx = catalogo().findIndex(p => p[0] === produtoEditado);
+    estado.produtos[idx] = produto;
+    if (nome !== produtoEditado) {
+      if (estado.qtd[produtoEditado]) { estado.qtd[nome] = estado.qtd[produtoEditado]; delete estado.qtd[produtoEditado]; }
+      estado.historico.forEach(h => {
+        if (h.itens[produtoEditado]) { h.itens[nome] = h.itens[produtoEditado]; delete h.itens[produtoEditado]; }
+      });
+      delete estado.parametros[produtoEditado];
+    }
+  } else {
+    estado.produtos.push(produto);
+  }
+  estado.parametros[nome] = {unidade:$("produtoUnidade").value.trim(), minimo, ideal};
+  persistir(); $("dlgNovo").close(); $("busca").value = ""; estado.busca = ""; desenhar(); listarCadastros();
+};
+
+function listarCadastros() {
+  const box = $("cadastroProdutos");
+  box.textContent = "";
+  catalogo().filter(p => norm(p[0]).includes(norm($("buscaCadastro").value))).forEach(p => {
+    const b = document.createElement("button");
+    b.textContent = p[0] + " · " + estado.categorias[p[1]];
+    b.onclick = () => abrirProduto(p[0]);
+    box.appendChild(b);
+  });
+}
+$("btnCadastros").onclick = () => { listarCadastros(); $("dlgCadastros").showModal(); };
+$("fecharCadastros").onclick = () => $("dlgCadastros").close();
+$("cadNovoProduto").onclick = () => abrirProduto();
+$("buscaCadastro").oninput = listarCadastros;
+$("cadCategorias").onclick = () => {
+  const sel = $("categoriaEscolhida"); sel.textContent = "";
+  ["+ Nova categoria"].concat(estado.categorias).forEach((c,i) => {
+    const o = document.createElement("option"); o.value = i - 1; o.textContent = c; sel.appendChild(o);
+  });
+  $("categoriaNome").value = ""; $("dlgCategorias").showModal();
+};
+$("categoriaEscolhida").onchange = () => {
+  const idx = Number($("categoriaEscolhida").value);
+  $("categoriaNome").value = idx < 0 ? "" : estado.categorias[idx];
+};
+$("fecharCategorias").onclick = () => $("dlgCategorias").close();
+$("salvarCategoria").onclick = () => {
+  const nome = $("categoriaNome").value.trim();
+  const idx = Number($("categoriaEscolhida").value);
+  if (!nome || nome.length > 60) { alert("Informe o nome da categoria, até 60 caracteres."); return; }
+  if (estado.categorias.some((c,i) => i !== idx && norm(c) === norm(nome))) { alert("Essa categoria já existe."); return; }
+  if (idx < 0) estado.categorias.push(nome); else estado.categorias[idx] = nome;
+  persistir(); chips(); desenhar(); listarCadastros(); $("dlgCategorias").close();
+};
+$("exportarBackup").onclick = () => {
+  const url = URL.createObjectURL(new Blob([JSON.stringify(dados(),null,2)],{type:"application/json"}));
+  const a = document.createElement("a"); a.href = url; a.download = "compras-backup-" + new Date().toISOString().slice(0,10) + ".json";
+  a.click(); setTimeout(() => URL.revokeObjectURL(url),1000);
+};
+$("importarBackup").onclick = () => $("arquivoBackup").click();
+$("arquivoBackup").onchange = async e => {
+  const arquivo = e.target.files[0];
+  if (!arquivo) return;
+  try {
+    const backup = JSON.parse(await arquivo.text());
+    validarBackup(backup);
+    if (!confirm("Substituir todos os dados deste aparelho pelo backup? Faça um backup atual antes.")) return;
+    for (const chave of ["categorias","produtos","parametros","qtd","historico"]) estado[chave] = backup[chave];
+    falhaLeitura = false;
+    estado.cat = -1; persistir(); chips(); desenhar(); listarCadastros();
+    alert("Backup restaurado.");
+  } catch (erro) { console.error("Falha ao restaurar backup",erro); alert("Não foi possível restaurar: " + erro.message); }
+  finally { e.target.value = ""; }
+};
+function validarBackup(b) {
+  const quantidade = n => Number.isInteger(n) && n >= 0 && n <= 999;
+  const objeto = o => o && typeof o === "object" && !Array.isArray(o);
+  const mapa = o => objeto(o) && Object.entries(o).every(([k,v]) => k.length > 0 && k.length <= 120 && quantidade(v));
+  if (b.versao !== 2 || !Array.isArray(b.categorias) || !b.categorias.length ||
+      !b.categorias.every(c => typeof c === "string" && c.trim() && c.length <= 60) ||
+      new Set(b.categorias.map(norm)).size !== b.categorias.length ||
+      !Array.isArray(b.produtos) || !b.produtos.every(p => Array.isArray(p) && p.length === 3 && typeof p[0] === "string" &&
+        p[0].trim() && p[0].length <= 120 && !/[\r\n]/.test(p[0]) && Number.isInteger(p[1]) && p[1] >= 0 &&
+        p[1] < b.categorias.length && quantidade(p[2])) ||
+      new Set(b.produtos.map(p => norm(p[0]))).size !== b.produtos.length ||
+      !mapa(b.qtd) || !Array.isArray(b.historico) || b.historico.length > 30 ||
+      !b.historico.every(h => objeto(h) && typeof h.data === "string" && Number.isFinite(Date.parse(h.data)) && mapa(h.itens)) ||
+      !objeto(b.parametros) || !Object.values(b.parametros).every(p => objeto(p) && typeof p.unidade === "string" &&
+        ((p.minimo === null && p.ideal === null) || (quantidade(p.minimo) && quantidade(p.ideal) && p.ideal >= p.minimo)))) {
+    throw new Error("Arquivo de backup inválido ou incompatível.");
+  }
+}
+$("btnHistorico").onclick = () => {
+  const box = $("listaHistorico");
+  box.textContent = "";
+  if (!estado.historico.length) { box.textContent = "Nenhum pedido salvo ainda."; }
+  estado.historico.forEach(h => {
+    const linha = document.createElement("div"); linha.className = "hist";
+    const info = document.createElement("div");
+    const d = new Date(h.data);
+    const n = Object.keys(h.itens).length;
+    info.textContent = d.toLocaleDateString("pt-BR") + " " + d.toLocaleTimeString("pt-BR", {hour:"2-digit", minute:"2-digit"});
+    const s = document.createElement("small"); s.textContent = n + " produtos"; info.appendChild(s);
+    const b = document.createElement("button"); b.textContent = "Usar";
+    b.onclick = () => {
+      if (Object.keys(estado.qtd).length && !confirm("Substituir as quantidades atuais por este pedido?")) return;
+      estado.qtd = Object.assign({}, h.itens); persistir(); $("dlgHistorico").close(); desenhar();
+    };
+    linha.append(info, b); box.appendChild(linha);
+  });
+  $("dlgHistorico").showModal();
+};
+$("fecharHistorico").onclick = () => $("dlgHistorico").close();
+
+if ("serviceWorker" in navigator && location.protocol.startsWith("http")) {
+  navigator.serviceWorker.register("sw.js").catch(erro => {
+    console.error("Falha ao ativar modo offline", erro);
+    $("status").textContent = "Modo offline indisponível. Mantenha conexão ou tente recarregar.";
+  });
+}
+
+chips(); desenhar();
+</script>
+</body>
+</html>
