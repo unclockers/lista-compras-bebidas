@@ -3,17 +3,32 @@
 Aplicativo independente dos sistemas OficcerSeg. Marca fornecida pelo proprietário.
 O pedido manual continua disponível; usar contagem de estoque é opcional.
 
-## Situação da publicação
+## Publicação atual
 
-O GitHub Pages anterior (`https://unclockers.github.io/lista-compras-bebidas/`)
-é uma aplicação estática sem autenticação. Esta versão adiciona backend real.
-Não substituir a versão pública antes de definir a hospedagem HTTPS do backend,
-criar o primeiro administrador e conferir a migração dos dados locais.
+Endereço: **https://vigilant.selfip.com:8444**
+
+Servidor `107.152.42.52`, serviço `villas-beer.service`, usuário de sistema
+`villas-beer`, aplicação `/opt/villas-beer/app`, Node dedicado em
+`/opt/villas-beer/node`, banco `/var/lib/villas-beer/villas.sqlite`.
+API escuta apenas em `127.0.0.1:8770`; nginx escuta HTTPS em 8444.
+VIGILANT permanece na sua porta e serviço original, sem alteração de código,
+banco ou configuração do site existente. Certificado TLS é o já renovado pelo
+Certbot para `vigilant.selfip.com`; um `reload` do nginx habilitou o site separado.
+
+O GitHub Pages antigo foi desativado após validação do novo HTTPS.
+O repositório continua como código-fonte, não contém banco nem código de ativação.
+Dados locais do endereço antigo não migram automaticamente: restaure o backup v2
+em Cadastros e publique explicitamente o catálogo como administrador.
+
+Primeiro acesso: botão Criar primeiro administrador, código privado entregue ao
+proprietário, usuário e senha escolhidos na própria página HTTPS. O código fica em
+`/var/lib/villas-beer/setup-token` com permissão 600, é apagado/inutilizado depois
+da criação e não permite criar outro administrador. Não compartilhar esse código
+nem guardá-lo no repositório. Usuários posteriores são criados em Equipe.
 
 **GitHub Pages não executa Node nem SQLite.** Neste projeto, o backend serve tanto
 a interface quanto a API no mesmo endereço HTTPS. Assim os cookies de sessão não
 dependem de permissões de terceiros entre dois domínios.
-O Pages pode continuar como uma página de entrada apontando para o endereço seguro.
 Não basta colocar senha no JavaScript ou esconder botões.
 
 ## Perfis
@@ -97,21 +112,30 @@ O comando create-admin solicita a senha no terminal sem exibi-la, nunca em
 argumento de linha de comando ou no chat. Abra `http://127.0.0.1:8770`.
 Só usar NODE_ENV=development em testes locais, pois desabilita Secure do cookie.
 
-## Publicação do backend (pendente de autorização do ambiente)
+## Operação do backend
 
 - Processo separado, usuário/serviço separado dos condomínios.
 - Node 24+, volume persistente privado para `DATABASE_FILE`, backup SQLite
   consistente (usar API de backup/SQLite, não copiar apenas o arquivo durante escrita).
-- `PUBLIC_ORIGIN=https://endereco-do-aplicativo` (sem barra final).
+- `PUBLIC_ORIGIN=https://vigilant.selfip.com:8444` (sem barra final).
 - `PORT=8770`, `DATABASE_FILE=/caminho-privado/villas.sqlite`.
 - Não definir NODE_ENV=development em produção.
+- `SETUP_FILE=/var/lib/villas-beer/setup-token` habilita a ativação única se ainda
+  não houver administrador. Também existe o comando interativo create-admin.
 - Proxy HTTPS encaminha **interface e /api/** ao Node na interface 127.0.0.1.
 - Criar administrador no próprio servidor e guardar a senha fora do repositório.
 - Não expor a porta local diretamente nem alterar serviços existentes sem aprovação.
 - Por padrão o limite de login considera o IP do proxy, sem confiar cegamente
   em X-Forwarded-For. Em proxy compartilhado isso pode limitar vários usuários
   após 15 erros em 15 minutos; revisar a política antes de escalar o uso.
-- O workflow de Pages publica somente arquivos estáticos, não implanta o backend.
+- O workflow de Pages foi removido para não republicar a versão antiga.
+- Instalação inicial: [deploy/install.sh](deploy/install.sh). Não é atualizador:
+  interrompe se detectar banco/serviço existente para evitar sobrescrita.
+- Atualizações futuras: backup consistente SQLite e dos arquivos, teste da nova
+  versão, troca dos arquivos da aplicação, reinício somente de `villas-beer`,
+  smoke test autenticado/HTTPS e health do VIGILANT.
+- Consulte `journalctl -u villas-beer.service`; proxy tem logs separados
+  `/var/log/nginx/villas-beer.access.log` e `villas-beer.error.log`.
 
 ## Validação
 

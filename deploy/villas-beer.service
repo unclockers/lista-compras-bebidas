@@ -1,0 +1,27 @@
+[Unit]
+Description=Villas Beer compras e estoque
+After=network.target
+
+[Service]
+Type=simple
+User=villas-beer
+Group=villas-beer
+WorkingDirectory=/opt/villas-beer/app
+EnvironmentFile=/etc/villas-beer.env
+ExecStart=/opt/villas-beer/node/bin/node /opt/villas-beer/app/server/app.cjs
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/villas-beer
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

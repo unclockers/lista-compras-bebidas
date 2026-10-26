@@ -120,3 +120,20 @@ test("banco persiste usuários, catálogo e contagens após reabertura",async t=
   assert.equal(db.prepare("SELECT revision FROM catalog").get().revision,1);
   db.close();
 });
+test("ativação exige código privado, cria admin único e invalida o código",async t=>{
+  const fs=require("node:fs");const os=require("node:os");const path=require("node:path");
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),"villas-setup-"));
+  const db=openDatabase(":memory:");const setupFile=path.join(dir,"setup-token");
+  const app=createApp({db,origin:ORIGIN,secure:false,setupFile});
+  await new Promise(resolve=>app.listen(0,"127.0.0.1",resolve));
+  t.after(async()=>{await new Promise(resolve=>app.close(resolve));db.close();fs.rmSync(dir,{recursive:true,force:true});});
+  const base="http://127.0.0.1:"+app.address().port;
+  const request=(data)=>fetch(base+"/api/setup",{method:"POST",headers:{Origin:ORIGIN,"Content-Type":"application/json"},body:JSON.stringify(data)});
+  assert.equal((await(await fetch(base+"/api/setup/status")).json()).required,true);
+  assert.equal((await request({code:"invalido",username:"admin",password})).status,403);
+  assert.equal((await request({code:fs.readFileSync(setupFile,"utf8"),username:"admin",password})).status,201);
+  assert.equal(fs.existsSync(setupFile),false);
+  assert.equal((await(await fetch(base+"/api/setup/status")).json()).required,false);
+  assert.equal((await request({code:"qualquer",username:"outro",password})).status,404);
+  assert.equal(db.prepare("SELECT COUNT(*) AS total FROM users").get().total,1);
+});

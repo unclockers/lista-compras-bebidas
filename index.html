@@ -97,6 +97,7 @@
   </form>
   <p id="erroLogin" role="alert"></p>
   <p class="aviso" id="hostingPendente" hidden>A publicação do backend de login está pendente. O GitHub Pages sozinho não autentica usuários nem sincroniza contagens.</p>
+  <button id="abrirSetup" hidden>Criar primeiro administrador</button>
 </section>
 <div id="app" hidden>
 <div class="sessao">
@@ -165,6 +166,17 @@
     <label for="senhaAtual">Senha atual</label><input id="senhaAtual" type="password" required autocomplete="current-password">
     <label for="novaSenha">Nova senha</label><input id="novaSenha" type="password" required minlength="12" maxlength="128" autocomplete="new-password">
     <div class="botoes"><button id="cancelarSenha" type="button">Cancelar</button><button class="ok">Salvar e sair</button></div>
+  </form>
+</dialog>
+<dialog id="dlgSetup">
+  <h2>Ativação Villas Beer</h2>
+  <p>Use o código privado de ativação fornecido ao proprietário. Depois da criação da conta, o código é invalidado.</p>
+  <form id="formSetup">
+    <label for="setupCodigo">Código de ativação</label><input id="setupCodigo" type="password" required autocomplete="off">
+    <label for="setupUsuario">Usuário administrador</label><input id="setupUsuario" value="admin" required minlength="3" maxlength="40" autocomplete="username">
+    <label for="setupSenha">Senha (12 a 128 caracteres)</label><input id="setupSenha" type="password" required minlength="12" maxlength="128" autocomplete="new-password">
+    <label for="setupConfirmar">Confirmar senha</label><input id="setupConfirmar" type="password" required minlength="12" maxlength="128" autocomplete="new-password">
+    <div class="botoes"><button id="cancelarSetup" type="button">Cancelar</button><button class="ok">Criar administrador</button></div>
   </form>
 </dialog>
 
@@ -798,6 +810,24 @@ async function restaurarAcesso(){
     $("hostingPendente").hidden=!location.hostname.endsWith("github.io");
   }
 }
+$("abrirSetup").onclick=()=>$("dlgSetup").showModal();
+$("cancelarSetup").onclick=()=>$("dlgSetup").close();
+$("formSetup").onsubmit=acao(async e=>{
+  e.preventDefault();
+  if($("setupSenha").value!==$("setupConfirmar").value)throw new Error("As senhas não conferem.");
+  const button=e.target.querySelector("button[type=submit],button.ok");button.disabled=true;
+  try {
+    await api("/setup","POST",{code:$("setupCodigo").value,username:$("setupUsuario").value,password:$("setupSenha").value});
+    $("setupCodigo").value="";$("setupSenha").value="";$("setupConfirmar").value="";
+    $("abrirSetup").hidden=true;$("dlgSetup").close();
+    alert("Administrador criado. Entre com o usuário e a senha escolhidos.");
+  } finally {button.disabled=false;}
+});
+async function verificarSetup(){
+  try {const status=await api("/setup/status");$("abrirSetup").hidden=!status.required;}
+  catch(erro){console.error("Não foi possível consultar ativação",erro.message);}
+}
+verificarSetup();
 restaurarAcesso();
 </script>
 </body>

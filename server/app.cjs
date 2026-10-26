@@ -2,7 +2,7 @@ const http = require("node:http");
 const { DatabaseSync } = require("node:sqlite");
 const { randomBytes, scrypt: scryptCallback, timingSafeEqual, createHash } = require("node:crypto");
 const { promisify } = require("node:util");
-const { readFileSync, mkdirSync, chmodSync } = require("node:fs");
+const { readFileSync, mkdirSync, chmodSync, existsSync, writeFileSync, unlinkSync } = require("node:fs");
 const path = require("node:path");
 const { calcularReposicao } = require("../estoque.js");
 const scrypt = promisify(scryptCallback);
@@ -106,11 +106,14 @@ async function readBody(req) {
   exigir(objeto(body), 400, "Envie um objeto JSON.");
   return body;
 }
-function createApp({db, origin, secure = true}) {
+function createApp({db, origin, secure = true, setupFile = null}) {
   exigir(typeof origin === "string" && (origin.startsWith("https://") || !secure),
     500, "Configure PUBLIC_ORIGIN com HTTPS.");
   exigir(new URL(origin).origin === origin,500,"PUBLIC_ORIGIN deve conter somente protocolo, host e porta, sem barra final.");
   const dummy = passwordHash("dummy-login-not-an-account");
+  if (setupFile && !db.prepare("SELECT id FROM users WHERE role='admin'").get() && !existsSync(setupFile)) {
+    writeFileSync(setupFile,randomBytes(32).toString("hex"),{mode:0o600,flag:"wx"});
+  }
   const cookieName = secure ? "__Host-villas_session" : "villas_session";
   const cookie = (token, age) => `${cookieName}=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${age}${secure ? "; Secure" : ""}`;
   const server = http.createServer(async (req, res) => {
@@ -143,6 +146,28 @@ function createApp({db, origin, secure = true}) {
         exigir(req.headers.origin === origin,403,"Origem da requisição não permitida.");
       }
       if (route === "/api/health" && req.method === "GET") { send(200,{status:"ok"}); return; }
+      if (route === "/api/setup/status" && req.method === "GET") {
+        send(200,{required:Boolean(setupFile && !db.prepare("SELECT id FROM users WHERE role='admin'").get())});
+        return;
+      }
+      if (route === "/api/setup" && req.method === "POST") {
+        exigir(setupFile && existsSync(setupFile),404,"Configuração inicial indisponível.");
+        exigir(!db.prepare("SELECT id FROM users WHERE role='admin'").get(),409,"Administrador já configurado.");
+        const body=await readBody(req);
+        const expected=readFileSync(setupFile,"utf8").trim();
+        exigir(typeof body.code==="string" && timingSafeEqual(
+          Buffer.from(hash(body.code)),Buffer.from(hash(expected))),403,"Código de ativação inválido.");
+        const digest=await passwordHash(body.password);
+        exigir(typeof body.username==="string" && /^[a-zA-Z0-9._-]{3,40}$/.test(body.username),400,"Usuário inválido.");
+        db.exec("BEGIN IMMEDIATE");
+        try {
+          exigir(!db.prepare("SELECT id FROM users WHERE role='admin'").get(),409,"Administrador já configurado.");
+          db.prepare("INSERT INTO users(username,password,role) VALUES(?,?,'admin')").run(body.username.toLowerCase(),digest);
+          db.exec("COMMIT");
+        } catch(error) { db.exec("ROLLBACK"); throw error; }
+        unlinkSync(setupFile);
+        send(201,{ok:true}); return;
+      }
       if (route === "/api/login" && req.method === "POST") {
         const body = await readBody(req);
         const username = typeof body.username === "string" ? body.username.toLowerCase() : "";
@@ -259,7 +284,7 @@ if (require.main === module) {
   const secure = process.env.NODE_ENV !== "development";
   const filename = process.env.DATABASE_FILE || path.join(root,"data","villas.sqlite");
   const db = openDatabase(filename);
-  const app = createApp({db,origin,secure});
+  const app = createApp({db,origin,secure,setupFile:process.env.SETUP_FILE || null});
   const port = Number(process.env.PORT || 8770);
   app.listen(port,"127.0.0.1",() => console.log("Villas Beer ouvindo em 127.0.0.1:"+port));
   const stop = () => app.close(() => { db.close(); process.exit(0); });
