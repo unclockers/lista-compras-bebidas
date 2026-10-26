@@ -7,6 +7,14 @@ O pedido manual continua disponível; usar contagem de estoque é opcional.
 
 Endereço: **https://vigilant.selfip.com:8444**
 
+Acesso alternativo: **https://107.152.42.52:8444**, autorizado por
+`ADDITIONAL_ORIGINS=https://107.152.42.52:8444` no ambiente do serviço.
+O certificado atual cobre apenas o domínio: pelo IP o navegador exibe alerta TLS.
+Prefira o domínio para conexão com identidade verificada. Sessões e dados locais
+do navegador são separados por endereço; o banco e as contas são os mesmos.
+`ADDITIONAL_ORIGINS` aceita origens exatas separadas por vírgula, sem barra final;
+não habilita CORS nem libera origens arbitrárias. Em produção exige HTTPS.
+
 Servidor `107.152.42.52`, serviço `villas-beer.service`, usuário de sistema
 `villas-beer`, aplicação `/opt/villas-beer/app`, Node dedicado em
 `/opt/villas-beer/node`, banco `/var/lib/villas-beer/villas.sqlite`.

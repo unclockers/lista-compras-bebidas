@@ -4,11 +4,11 @@ const {openDatabase,criarUsuario,createApp} = require("./app.cjs");
 const {calcularReposicao} = require("../estoque.js");
 const ORIGIN="http://127.0.0.1:8771";
 const password="test-only-password-long";
-async function fixture(t) {
+async function fixture(t,additionalOrigins=[]) {
   const db=openDatabase(":memory:");
   await criarUsuario(db,"admin-test",password,"admin");
   await criarUsuario(db,"colab-test",password,"colaborador");
-  const app=createApp({db,origin:ORIGIN,secure:false});
+  const app=createApp({db,origin:ORIGIN,additionalOrigins,secure:false});
   await new Promise(resolve=>app.listen(0,"127.0.0.1",resolve));
   const base="http://127.0.0.1:"+app.address().port;
   t.after(async()=>{await new Promise(resolve=>app.close(resolve));db.close();});
@@ -46,6 +46,22 @@ test("proteção real: anônimo, CSRF, cookie, sessão e logout",async t=>{
   assert.equal(db.prepare("SELECT token FROM sessions LIMIT 1").get().token.length,64);
   assert.equal((await call("/logout","POST",{},cookie)).status,200);
   assert.equal((await call("/catalog","GET",undefined,cookie)).status,401);
+});
+test("origem adicional explícita aceita IP sem liberar outras origens",async t=>{
+  const ip="https://107.152.42.52:8444";
+  const {call}=await fixture(t,[ip]);
+  for(const allowed of [ORIGIN,ip]){
+    assert.equal((await call("/login","POST",{username:"admin-test",password},"",allowed)).status,200);
+    assert.notEqual((await call("/setup","POST",{},"",allowed)).status,403);
+  }
+  for(const rejected of ["https://evil.invalid","https://107.152.42.52:8445","http://107.152.42.52:8444","null",""]){
+    assert.equal((await call("/login","POST",{username:"admin-test",password},"",rejected)).status,403);
+    assert.equal((await call("/setup","POST",{},"",rejected)).status,403);
+  }
+  const db=openDatabase(":memory:");
+  try {
+    assert.throws(()=>createApp({db,origin:"https://vigilant.selfip.com:8444",additionalOrigins:["http://107.152.42.52:8444"]}),/HTTPS/);
+  } finally { db.close(); }
 });
 test("colaborador proibido de gerenciar equipe e catálogo; contagens têm autoria real",async t=>{
   const {call,login}=await fixture(t);

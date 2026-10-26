@@ -106,10 +106,17 @@ async function readBody(req) {
   exigir(objeto(body), 400, "Envie um objeto JSON.");
   return body;
 }
-function createApp({db, origin, secure = true, setupFile = null}) {
+function createApp({db, origin, additionalOrigins = [], secure = true, setupFile = null}) {
   exigir(typeof origin === "string" && (origin.startsWith("https://") || !secure),
     500, "Configure PUBLIC_ORIGIN com HTTPS.");
   exigir(new URL(origin).origin === origin,500,"PUBLIC_ORIGIN deve conter somente protocolo, host e porta, sem barra final.");
+  exigir(Array.isArray(additionalOrigins),500,"ADDITIONAL_ORIGINS deve ser uma lista de origens.");
+  for (const allowed of additionalOrigins) {
+    exigir(typeof allowed === "string" && (allowed.startsWith("https://") || !secure),
+      500,"ADDITIONAL_ORIGINS deve usar HTTPS.");
+    exigir(new URL(allowed).origin === allowed,500,"ADDITIONAL_ORIGINS deve conter somente protocolo, host e porta, sem barra final.");
+  }
+  const allowedOrigins = new Set([origin,...additionalOrigins]);
   const dummy = passwordHash("dummy-login-not-an-account");
   if (setupFile && !db.prepare("SELECT id FROM users WHERE role='admin'").get() && !existsSync(setupFile)) {
     writeFileSync(setupFile,randomBytes(32).toString("hex"),{mode:0o600,flag:"wx"});
@@ -143,7 +150,7 @@ function createApp({db, origin, secure = true, setupFile = null}) {
         return;
       }
       if (!["GET","HEAD"].includes(req.method)) {
-        exigir(req.headers.origin === origin,403,"Origem da requisição não permitida.");
+        exigir(allowedOrigins.has(req.headers.origin),403,"Origem da requisição não permitida.");
       }
       if (route === "/api/health" && req.method === "GET") { send(200,{status:"ok"}); return; }
       if (route === "/api/setup/status" && req.method === "GET") {
@@ -284,7 +291,9 @@ if (require.main === module) {
   const secure = process.env.NODE_ENV !== "development";
   const filename = process.env.DATABASE_FILE || path.join(root,"data","villas.sqlite");
   const db = openDatabase(filename);
-  const app = createApp({db,origin,secure,setupFile:process.env.SETUP_FILE || null});
+  const additionalOrigins = process.env.ADDITIONAL_ORIGINS
+    ? process.env.ADDITIONAL_ORIGINS.split(",").map(value=>value.trim()) : [];
+  const app = createApp({db,origin,additionalOrigins,secure,setupFile:process.env.SETUP_FILE || null});
   const port = Number(process.env.PORT || 8770);
   app.listen(port,"127.0.0.1",() => console.log("Villas Beer ouvindo em 127.0.0.1:"+port));
   const stop = () => app.close(() => { db.close(); process.exit(0); });
